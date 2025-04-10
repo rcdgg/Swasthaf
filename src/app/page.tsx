@@ -1,6 +1,24 @@
+"use client";
+
+import { useEffect, useState } from 'react';
+import { supabase } from '../supabaseClient';
 import Image from "next/image";
 
 export default function Home() {
+  const [data, setData] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      console.log('Fetching data from Supabase...');
+      const { data, error } = await supabase.from('appointment').select('*');
+      console.log('Supabase response:', { data, error });
+      if (error) console.error('Error fetching data:', error);
+      else setData(data || []);
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
@@ -50,6 +68,12 @@ export default function Home() {
             Read our docs
           </a>
         </div>
+
+        <ul>
+          {data.map((item, index) => (
+            <li key={index}>{JSON.stringify(item)}</li>
+          ))}
+        </ul>
       </main>
       <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
         <a
