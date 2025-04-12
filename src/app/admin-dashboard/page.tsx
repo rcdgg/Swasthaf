@@ -4,6 +4,18 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useRouter } from 'next/navigation';
 
+interface Trainer {
+  trainer_name: string;
+  specialization: string;
+}
+
+interface MealPlan {
+  plan_name: string;
+  calories_per_day: number;
+  duration: number;
+  trainer_name: string;
+}
+
 interface User {
   user_id: number;
   name: string;
@@ -21,9 +33,17 @@ interface User {
   mental_health_created_at: string | null;
   payment_status: string | null;
   payment_due_date: string | null;
+  status: 'Active' | 'Inactive';
+  trainers?: Trainer[];
+  mealplans?: MealPlan[];
 }
 
-type SortableAttribute = 'age' | 'weight' | 'height' | 'avg_calories_burned' | 'stress_level' | 'sleep_quality' | 'created_at' | 'mental_health_created_at' | 'payment_due_date';
+type SortableAttribute = 'age' | 'weight' | 'height' | 'avg_calories_burned' | 'stress_level' | 'sleep_quality' | 'created_at' | 'mental_health_created_at' | 'payment_due_date' | 'status';
+
+interface SortConfig {
+  attribute: SortableAttribute;
+  order: 'asc' | 'desc';
+}
 
 const SORTABLE_COLUMNS: Record<string, { label: string; sortable: boolean }> = {
   name: { label: 'Name', sortable: false },
@@ -39,49 +59,157 @@ const SORTABLE_COLUMNS: Record<string, { label: string; sortable: boolean }> = {
   sleep_quality: { label: 'Sleep Quality', sortable: true },
   created_at: { label: 'Created At', sortable: true },
   mental_health_created_at: { label: 'Last Mental Health Update', sortable: true },
-  payment_due_date: { label: 'Payment Status', sortable: true }
+  payment_due_date: { label: 'Payment Status', sortable: true },
+  status: { label: 'Status', sortable: true }
 };
+
+interface UserModalProps {
+  user: User;
+  onClose: () => void;
+}
+
+const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-2xl font-bold">{user.name}'s Details</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Trainers Section */}
+        <div className="mb-6">
+          <h3 className="text-xl font-semibold mb-3">Associated Trainers</h3>
+          {user.trainers && user.trainers.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {user.trainers.map((trainer, index) => (
+                <div key={index} className="border rounded p-3">
+                  <p className="font-medium">{trainer.trainer_name}</p>
+                  <p className="text-gray-600">Specialization: {trainer.specialization}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">No trainers associated</p>
+          )}
+        </div>
+
+        {/* Meal Plans Section */}
+        <div>
+          <h3 className="text-xl font-semibold mb-3">Meal Plans</h3>
+          {user.mealplans && user.mealplans.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {user.mealplans.map((plan, index) => (
+                <div key={index} className="border rounded p-3">
+                  <p className="font-medium">{plan.plan_name}</p>
+                  <p className="text-gray-600">Calories per day: {plan.calories_per_day}</p>
+                  <p className="text-gray-600">Duration: {plan.duration} days</p>
+                  <p className="text-gray-600">Created by: {plan.trainer_name}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-500">No meal plans available</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface TrainerMapResponse {
+  user_id: number;
+  trainerandnutritionist: {
+    name: string;
+    specialization: string;
+  };
+}
+
+interface MealPlanResponse {
+  user_id: number;
+  plan_name: string;
+  calories_per_day: number;
+  duration: number;
+  trainerandnutritionist: {
+    name: string;
+  };
+}
 
 export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [sortBy, setSortBy] = useState<SortableAttribute>('created_at');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortConfigs, setSortConfigs] = useState<SortConfig[]>([]);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const router = useRouter();
 
   const handleSort = (attribute: string) => {
     if (!SORTABLE_COLUMNS[attribute].sortable) return;
 
-    if (sortBy === attribute) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortBy(attribute as SortableAttribute);
-      setSortOrder('asc');
-    }
+    setSortConfigs(prevConfigs => {
+      const existingIndex = prevConfigs.findIndex(config => config.attribute === attribute);
+      let newConfigs = [...prevConfigs];
 
-    const sortedUsers = [...users].sort((a, b) => {
-      const aValue = a[attribute as keyof User];
-      const bValue = b[attribute as keyof User];
-
-      // Always keep null values at the bottom
-      if (aValue === null && bValue === null) return 0;
-      if (aValue === null) return 1;
-      if (bValue === null) return -1;
-
-      // Compare values
-      if (typeof aValue === 'string' && typeof bValue === 'string') {
-        return sortOrder === 'asc' 
-          ? new Date(aValue).getTime() - new Date(bValue).getTime()
-          : new Date(bValue).getTime() - new Date(aValue).getTime();
+      if (existingIndex === -1) {
+        // First click - Add new sort attribute with ascending order
+        if (newConfigs.length >= 2) return newConfigs; // Limit to 2 sorts
+        newConfigs.push({ attribute: attribute as SortableAttribute, order: 'asc' });
+      } else {
+        const currentConfig = newConfigs[existingIndex];
+        if (currentConfig.order === 'asc') {
+          // Second click - Change to descending
+          newConfigs[existingIndex] = { ...currentConfig, order: 'desc' };
+        } else {
+          // Third click - Remove this sort
+          newConfigs.splice(existingIndex, 1);
+        }
       }
 
-      return sortOrder === 'asc'
-        ? (aValue as number) - (bValue as number)
-        : (bValue as number) - (aValue as number);
-    });
+      // Apply sorting
+      const sortedUsers = [...users].sort((a, b) => {
+        for (const config of newConfigs) {
+          const aValue = a[config.attribute as keyof User];
+          const bValue = b[config.attribute as keyof User];
 
-    setUsers(sortedUsers);
+          // Handle null values - always at bottom
+          if (aValue === null && bValue === null) return 0;
+          if (aValue === null) return 1;
+          if (bValue === null) return -1;
+
+          let comparison = 0;
+          
+          // Compare date strings
+          if (typeof aValue === 'string' && typeof bValue === 'string' && 
+              (aValue.includes('-') || aValue.includes('/'))) {
+            const aTime = new Date(aValue).getTime();
+            const bTime = new Date(bValue).getTime();
+            comparison = aTime > bTime ? 1 : aTime < bTime ? -1 : 0;
+          } 
+          // Compare numbers
+          else if (typeof aValue === 'number' && typeof bValue === 'number') {
+            comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+          }
+          // Compare strings
+          else {
+            comparison = String(aValue).localeCompare(String(bValue));
+          }
+
+          // Apply sort order and return if there's a difference
+          if (comparison !== 0) {
+            return config.order === 'asc' ? comparison : -comparison;
+          }
+        }
+        return 0;
+      });
+
+      setUsers(sortedUsers);
+      return newConfigs;
+    });
   };
 
   useEffect(() => {
@@ -105,7 +233,7 @@ export default function AdminDashboard() {
         // Get average calories burned for each user
         const { data: caloriesData, error: caloriesError } = await supabase
           .from('progresslog')
-          .select('user_id, calories_burned')
+          .select('user_id, calories_burned, log_date')
           .order('created_at', { ascending: false });
 
         if (caloriesError) throw caloriesError;
@@ -127,6 +255,34 @@ export default function AdminDashboard() {
 
         if (paymentError) throw paymentError;
 
+        // Get trainer data for each user
+        const { data: trainerData, error: trainerError } = await supabase
+          .from('trainerusermap')
+          .select(`
+            user_id,
+            trainerandnutritionist:trainer_id (
+              name,
+              specialization
+            )
+          `) as { data: TrainerMapResponse[] | null; error: any };
+
+        if (trainerError) throw trainerError;
+
+        // Get meal plan data for each user
+        const { data: mealPlanData, error: mealPlanError } = await supabase
+          .from('mealplan')
+          .select(`
+            user_id,
+            plan_name,
+            calories_per_day,
+            duration,
+            trainerandnutritionist:trainer_id (
+              name
+            )
+          `) as { data: MealPlanResponse[] | null; error: any };
+
+        if (mealPlanError) throw mealPlanError;
+
         // Process and combine the data
         const processedUsers = userData.map(user => {
           // Calculate average calories burned
@@ -143,6 +299,34 @@ export default function AdminDashboard() {
           const payment_status = pendingPayment ? 'Due' : 'Completed';
           const payment_due_date = pendingPayment ? pendingPayment.created_at : null;
 
+          // Get user's trainers
+          const userTrainers = trainerData
+            ?.filter(t => t.user_id === user.user_id)
+            .map(t => ({
+              trainer_name: t.trainerandnutritionist.name,
+              specialization: t.trainerandnutritionist.specialization
+            }));
+
+          // Get user's meal plans
+          const userMealPlans = mealPlanData
+            ?.filter(m => m.user_id === user.user_id)
+            .map(m => ({
+              plan_name: m.plan_name,
+              calories_per_day: m.calories_per_day,
+              duration: m.duration,
+              trainer_name: m.trainerandnutritionist.name
+            }));
+
+          // Check if user is active
+          const oneMonthAgo = new Date();
+          oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+          
+          const hasRecentActivity = (
+            mentalHealthData?.some(m => m.user_id === user.user_id && new Date(m.created_at) > oneMonthAgo) ||
+            caloriesData?.some(c => c.user_id === user.user_id && new Date(c.log_date) > oneMonthAgo) ||
+            paymentData?.some(p => p.user_id === user.user_id && new Date(p.created_at) > oneMonthAgo)
+          );
+
           return {
             ...user,
             avg_calories_burned: avgCalories,
@@ -151,7 +335,10 @@ export default function AdminDashboard() {
             sleep_quality: latestMentalHealth?.sleep_quality || null,
             mental_health_created_at: latestMentalHealth?.created_at || null,
             payment_status,
-            payment_due_date
+            payment_due_date,
+            status: hasRecentActivity ? 'Active' : 'Inactive',
+            trainers: userTrainers || [],
+            mealplans: userMealPlans || []
           };
         });
 
@@ -184,7 +371,9 @@ export default function AdminDashboard() {
 
   const renderColumnHeader = (key: string) => {
     const { label, sortable } = SORTABLE_COLUMNS[key];
-    const isSorted = sortBy === key;
+    const sortConfig = sortConfigs.find(config => config.attribute === key);
+    const sortIndex = sortConfigs.findIndex(config => config.attribute === key);
+    const isSorted = sortIndex !== -1;
 
     return (
       <th 
@@ -198,7 +387,12 @@ export default function AdminDashboard() {
           <span>{label}</span>
           {sortable && (
             <span className="text-gray-400">
-              {isSorted ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ' ↕'}
+              {isSorted ? (
+                <>
+                  {sortConfig?.order === 'asc' ? ' ↑' : ' ↓'}
+                  {sortConfigs.length > 1 && <sup className="ml-0.5">{sortIndex + 1}</sup>}
+                </>
+              ) : ' ↕'}
             </span>
           )}
         </div>
@@ -233,7 +427,12 @@ export default function AdminDashboard() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {users.map((user) => (
                   <tr key={user.user_id}>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.name}</td>
+                    <td 
+                      className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                      onClick={() => setSelectedUser(user)}
+                    >
+                      {user.name}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.age || '-'}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.weight || '-'}</td>
@@ -262,6 +461,11 @@ export default function AdminDashboard() {
                           : '-'
                       }
                     </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm ${
+                      user.status === 'Active' ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {user.status}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -269,6 +473,13 @@ export default function AdminDashboard() {
           </div>
         </div>
       </div>
+
+      {selectedUser && (
+        <UserModal
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
     </div>
   );
 } 
