@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'user' | 'trainer'>('user');
+  const [userType, setUserType] = useState<'user' | 'trainer' | 'admin'>('user');
   const [error, setError] = useState('');
   const router = useRouter();
 
@@ -17,7 +17,20 @@ export default function LoginPage() {
     setError('');
 
     try {
-      if (userType === 'user') {
+      if (userType === 'admin') {
+        if (password !== '123') {
+          throw new Error('Invalid admin password');
+        }
+        // Store admin data in session storage
+        sessionStorage.setItem('userData', JSON.stringify({
+          user_id: 'admin',
+          name: 'Admin',
+          email: 'admin@example.com'
+        }));
+        sessionStorage.setItem('userType', 'admin');
+        // Redirect to admin dashboard
+        router.push('/admin-dashboard');
+      } else if (userType === 'user') {
         // Hash the password using MD5
         const passwordHash = createHash('md5').update(password).digest('hex');
 
@@ -110,10 +123,11 @@ export default function LoginPage() {
                 id="user-type"
                 className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
                 value={userType}
-                onChange={(e) => setUserType(e.target.value as 'user' | 'trainer')}
+                onChange={(e) => setUserType(e.target.value as 'user' | 'trainer' | 'admin')}
               >
                 <option value="user">User</option>
                 <option value="trainer">Trainer</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
 
@@ -152,7 +166,7 @@ export default function LoginPage() {
                   />
                 </div>
               </>
-            ) : (
+            ) : userType === 'trainer' ? (
               <div>
                 <label htmlFor="trainer-name" className="block text-sm font-medium text-gray-700">
                   Trainer Name
@@ -164,6 +178,22 @@ export default function LoginPage() {
                   required
                   className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
                   placeholder="Enter your trainer name"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+            ) : (
+              <div>
+                <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700">
+                  Admin Password
+                </label>
+                <input
+                  id="admin-password"
+                  name="admin-password"
+                  type="password"
+                  required
+                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Enter admin password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
