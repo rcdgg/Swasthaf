@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 interface Trainer {
   trainer_id: number;
   name: string;
+  trainer_name: string;
   specialization: string;
   certification: string;
   experience: number;
@@ -97,7 +98,7 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
             <div className="grid grid-cols-1 gap-4">
               {user.trainers.map((trainer, index) => (
                 <div key={index} className="border rounded p-3">
-                  <p className="font-medium">{trainer.name}</p>
+                  <p className="font-medium">Name: {trainer.trainer_name}</p>
                   <p className="text-gray-600">Specialization: {trainer.specialization}</p>
                 </div>
               ))}
@@ -521,6 +522,19 @@ export default function AdminDashboard() {
 
       if (userError) throw userError;
 
+      // Get trainer data for each user
+      const { data: trainerData, error: trainerError } = await supabase
+        .from('trainerusermap')
+        .select(`
+          user_id,
+          trainerandnutritionist:trainer_id (
+            name,
+            specialization
+          )
+        `) as { data: TrainerMapResponse[] | null; error: any };
+
+      if (trainerError) throw trainerError;
+
       // Get average calories burned for each user
       const { data: caloriesData, error: caloriesError } = await supabase
         .from('progresslog')
@@ -529,7 +543,7 @@ export default function AdminDashboard() {
 
       if (caloriesError) throw caloriesError;
 
-      // Get mental health data for each user
+      // Get latest mental health data
       const { data: mentalHealthData, error: mentalHealthError } = await supabase
         .from('mentalhealthlog')
         .select('user_id, mood, stress_level, sleep_quality, created_at')
@@ -546,20 +560,7 @@ export default function AdminDashboard() {
 
       if (paymentError) throw paymentError;
 
-      // Get trainer data for each user
-      const { data: trainerData, error: trainerError } = await supabase
-        .from('trainerusermap')
-        .select(`
-          user_id,
-          trainerandnutritionist:trainer_id (
-            name,
-            specialization
-          )
-        `) as { data: TrainerMapResponse[] | null; error: any };
-
-      if (trainerError) throw trainerError;
-
-      // Get meal plan data for each user
+      // Get user's meal plans
       const { data: mealPlanData, error: mealPlanError } = await supabase
         .from('mealplan')
         .select(`
@@ -570,12 +571,20 @@ export default function AdminDashboard() {
           trainerandnutritionist:trainer_id (
             name
           )
-        `) as { data: MealPlanResponse[] | null; error: any };
+        `) as { data: { user_id: number; plan_name: string; calories_per_day: number; duration: number; trainerandnutritionist: { name: string } }[] | null; error: any };
 
       if (mealPlanError) throw mealPlanError;
 
       // Process and combine the data
       const processedUsers = userData.map(user => {
+        // Get user's trainers
+        const userTrainers = trainerData
+          ?.filter(t => t.user_id === user.user_id)
+          .map(t => ({
+            trainer_name: t.trainerandnutritionist.name,
+            specialization: t.trainerandnutritionist.specialization
+          })) || [];
+
         // Calculate average calories burned
         const userCalories = caloriesData?.filter(c => c.user_id === user.user_id);
         const avgCalories = userCalories?.length 
@@ -590,14 +599,6 @@ export default function AdminDashboard() {
         const payment_status = pendingPayment ? 'Due' : 'Completed';
         const payment_due_date = pendingPayment ? pendingPayment.created_at : null;
 
-        // Get user's trainers
-        const userTrainers = trainerData
-          ?.filter(t => t.user_id === user.user_id)
-          .map(t => ({
-            trainer_name: t.trainerandnutritionist.name,
-            specialization: t.trainerandnutritionist.specialization
-          }));
-
         // Get user's meal plans
         const userMealPlans = mealPlanData
           ?.filter(m => m.user_id === user.user_id)
@@ -606,7 +607,7 @@ export default function AdminDashboard() {
             calories_per_day: m.calories_per_day,
             duration: m.duration,
             trainer_name: m.trainerandnutritionist.name
-          }));
+          })) || [];
 
         // Check if user is active
         const oneMonthAgo = new Date();
@@ -628,8 +629,8 @@ export default function AdminDashboard() {
           payment_status,
           payment_due_date,
           status: hasRecentActivity ? 'Active' : 'Inactive',
-          trainers: userTrainers || [],
-          mealplans: userMealPlans || []
+          trainers: userTrainers,
+          mealplans: userMealPlans
         };
       });
 
@@ -664,7 +665,7 @@ export default function AdminDashboard() {
       if (bookingsError) throw bookingsError;
 
       // Process and combine the data
-      const processedTrainers = trainerData.map(trainer => {
+      const processedTrainers = trainerData.map((trainer: any) => {
         const earnings = earningsData
           ?.filter(p => p.trainer_id === trainer.trainer_id)
           .reduce((sum, p) => sum + p.amount, 0) || 0;
@@ -674,7 +675,13 @@ export default function AdminDashboard() {
           .length || 0;
 
         return {
-          ...trainer,
+          trainer_id: trainer.trainer_id,
+          name: trainer.name,
+          trainer_name: trainer.name,
+          specialization: trainer.specialization,
+          certification: trainer.certification,
+          experience: trainer.experience,
+          rating: trainer.rating,
           earnings,
           bookings
         };
