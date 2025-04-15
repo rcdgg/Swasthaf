@@ -1,15 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap'); /* Or whichever you pick */
 @import "tailwindcss";
+
+@font-face {
+  font-family: 'Love Ya Like A Sister';
+  src: url('/font/LoveYaLikeASister-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-sans: 'Playfair Display', serif;  /* Change this line */
+  --font-mono: 'Courier New', monospace;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -22,5 +36,144 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);  /* Applies the formal font globally */
 }
+/* globals.css or any global CSS file */
+.twinkling-stars {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100px;  /* Limit the height to just the top of the page */
+  pointer-events: none;  /* Ensure it doesn't block user interaction */
+  z-index: 5;  /* Place on top of the background */
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.twinkling-stars .dot {
+  width: 8px;
+  height: 8px;
+  background-color: #FEFD94;  /* White dots */
+  border-radius: 50%;  /* Make them round */
+  opacity: 0.2;
+  animation: twinkle 2s infinite alternate;
+  position: absolute;
+}
+
+@keyframes twinkle {
+  0% {
+    opacity: 0.2;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.2;
+  }
+}
+
+
+/* Butterfly Movement */
+/* Butterfly Movement and Animation */
+/* Butterfly Movement and Animation */
+
+.butterfly {
+  position: fixed;
+  top: 50%; /* Start at center of the screen */
+  left: -100px; /* Start off-screen on the left */
+  z-index: 0;  /* Make sure it stays on top */
+  animation: butterflyMove 15s ease-in-out infinite, butterflyFlap 0.3s ease-in-out infinite, butterflySwing 4s ease-in-out infinite;
+  transform-origin: center center;  /* Butterfly flips around its center */
+  width: 50px;  /* Adjust butterfly size */
+  height: auto;
+  transform: scaleX(-1);  /* Flip horizontally (invert along vertical axis) */
+}
+
+/* Butterfly Flapping (Wing Movement) */
+@keyframes butterflyFlap {
+  0% {
+    transform: rotate(0deg); /* No rotation */
+  }
+  50% {
+    transform: rotate(20deg); /* Flap upwards */
+  }
+  100% {
+    transform: rotate(0deg); /* Return to normal */
+  }
+}
+
+/* Butterfly Movement (Up and Down, Looping Motion in Circular Path) */
+@keyframes butterflyMove {
+  0% {
+    top: 50%; /* Start at the middle of the screen */
+    left: -100px; /* Start off-screen on the left */
+    transform: scale(1) rotate(0deg); /* Start with no rotation */
+  }
+  25% {
+    top: 30%; /* Move up */
+    left: 25%; /* Move slightly to the right */
+  }
+  50% {
+    top: 50%; /* Move down to the center */
+    left: 50%; /* Move more to the center */
+  }
+  75% {
+    top: 30%; /* Move up again */
+    left: 75%; /* Move further to the right */
+  }
+  100% {
+    top: 50%; /* Return to the center */
+    left: 100vw; /* Move off-screen to the right */
+  }
+}
+
+/* Butterfly Swing (Flip Movement) */
+@keyframes butterflySwing {
+  0% {
+    transform: rotate(0deg); /* No flip */
+  }
+  50% {
+    transform: rotate(15deg); /* Rotate for the flap */
+  }
+  100% {
+    transform: rotate(0deg); /* Reset rotation */
+  }
+}
+.dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background-color: white;
+  border-radius: 50%;
+  animation: twinkle 2s infinite ease-in-out;
+  opacity: 0.8;
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 0.2; }
+}
+@font-face {
+  font-family: 'Staatliches';
+  src: url('/font/Staatliches-Regular.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+.staatliches-font {
+  font-family: 'Staatliches', sans-serif;
+}
+.running-girl {
+  position: fixed;
+  top: 50%;
+  left: 5%;
+  transform: translateY(-50%);
+  width: 700px; /* 🔥 increase size */
+  transition: transform 0.09s ease-out; /* smoother */
+  z-index: 0;
+  pointer-events: none;
+}
+
