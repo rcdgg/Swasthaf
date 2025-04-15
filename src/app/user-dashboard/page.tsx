@@ -34,7 +34,7 @@ export default function UserDashboard() {
                 <div
                     key={card.title}
                     onClick={() => router.push(card.route)}
-                    className="cursor-pointer bg-gray-800 rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition duration-300 hover:bg-gray-700"
+                    className="cursor-pointer bg-gray-800 rounded-2xl shadow-sm overflow-hidden hover:shadow-2xl transition duration-300 hover-bg-gray-700"
                 >
                     <img src={card.image} alt={card.title} className="w-full h-60 object-cover" />
                     <div className="p-6">
