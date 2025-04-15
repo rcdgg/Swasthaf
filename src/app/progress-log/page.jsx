@@ -1,20 +1,80 @@
 "use client";
 import { supabase } from '../../supabaseClient';
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 // import './globals.css';  // or wherever your global CSS file is
 
 
 export default function ProgressLog() {
   const [previousLogs, setPreviousLogs] = useState([]);
+  const [todaysCalories, setTodaysCalories] = useState(0);
+  const [caloriesConsumed, setCaloriesConsumed] = useState(0);
+  const [userId, setUserId] = useState(null);
+  const router = useRouter();
   
   useEffect(() => {
-    fetchPreviousLogs();
+    checkUser();
   }, []);
 
-  const fetchPreviousLogs = async () => {
-    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
-    const userId = userData.user_id;
+  useEffect(() => {
+    if (userId) {
+      fetchPreviousLogs();
+      fetchTodaysCalories();
+    }
+  }, [userId]);
 
+  const checkUser = async () => {
+    try {
+      const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+      if (!userData.user_id) {
+        router.push('/login');
+        return;
+      }
+      setUserId(userData.user_id);
+    } catch (error) {
+      console.error('Error checking user:', error);
+      router.push('/login');
+    }
+  };
+
+  const fetchTodaysCalories = async () => {
+    if (!userId) return;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('user_daily_foods')
+        .select('total_calories')
+        .eq('user_id', userId)
+        .eq('log_date', today)
+        .single();
+
+      if (error) {
+        if (error.code === 'PGRST116') { // No record found
+          setTodaysCalories(0);
+          setCaloriesConsumed(0);
+          return;
+        }
+        throw error;
+      }
+
+      const calories = data?.total_calories || 0;
+      setTodaysCalories(calories);
+      setCaloriesConsumed(calories);
+      
+      // Auto-fill the calories field
+      const caloriesInput = document.getElementById("calories_consumed");
+      if (caloriesInput) {
+        caloriesInput.value = calories || 0;
+      }
+    } catch (error) {
+      console.error('Error fetching today\'s calories:', error);
+      setTodaysCalories(0);
+      setCaloriesConsumed(0);
+    }
+  };
+
+  const fetchPreviousLogs = async () => {
     if (!userId) return;
 
     try {
@@ -34,13 +94,9 @@ export default function ProgressLog() {
   const handleLogSubmit = async () => {
     const wt = parseFloat(document.getElementById("weight").value);
     const bmii = parseFloat(document.getElementById("bmi").value);
-    const caloriesConsumed = parseInt(document.getElementById("calories_consumed").value);
     const caloriesBurned = parseInt(document.getElementById("calories_burned").value);
     const waterIntake = parseInt(document.getElementById("water_intake").value);
     const sleepHours = parseFloat(document.getElementById("sleep_hours").value);
-
-    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
-    const userId = userData.user_id;
 
     if (!userId) {
       alert("User not logged in. Please log in again.");
@@ -51,14 +107,12 @@ export default function ProgressLog() {
       user_id: userId,
       weight: wt,
       bmi: bmii,
-      calories_consumed: caloriesConsumed,
+      calories_consumed: caloriesConsumed, // Use the editable value
       calories_burned: caloriesBurned,
       water_intake: waterIntake,
       sleep_hours: sleepHours,
       log_date: new Date().toISOString().split("T")[0] + "T00:00:00"
     };
-
-    console.log("📦 Submitting progress log:", logEntry);
 
     try {
       const { data, error } = await supabase
@@ -184,9 +238,20 @@ export default function ProgressLog() {
 <input id="bmi" name="bmi" type="number" step="0.1" style={inputStyle} />
 
 <label htmlFor="calories_consumed" style={labelStyle}>
-  Calories Consumed:
+  Calories Consumed: {todaysCalories > 0 && (
+    <span style={{ fontSize: '0.9em', color: '#666' }}>
+      (Suggested from food page: {todaysCalories} kcal)
+    </span>
+  )}
 </label>
-<input id="calories_consumed" name="calories_consumed" type="number" style={inputStyle} />
+<input 
+  id="calories_consumed" 
+  name="calories_consumed" 
+  type="number" 
+  value={caloriesConsumed}
+  onChange={(e) => setCaloriesConsumed(parseInt(e.target.value) || 0)}
+  style={inputStyle}
+/>
 
 <label htmlFor="calories_burned" style={labelStyle}>
   Calories Burned:

@@ -661,6 +661,7 @@ export default function AdminDashboard() {
 
           return {
             ...trainer,
+            trainer_name: trainer.name,
             earnings: totalEarnings,
             bookings: totalBookings,
           };

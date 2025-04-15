@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useRouter } from 'next/navigation';
+import React from 'react';
 
 interface FoodItem {
   food_id: number;
@@ -37,6 +38,7 @@ export default function FoodPage() {
   const [loading, setLoading] = useState(true);
   const [selectedQuantity, setSelectedQuantity] = useState<number>(1);
   const [userId, setUserId] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string>('');
 
   useEffect(() => {
     checkUser();
@@ -46,17 +48,18 @@ export default function FoodPage() {
     if (userId) {
       fetchFoodItems();
       fetchMealPlans();
+      loadTodaysFoodSelections();
     }
   }, [userId]);
 
   const checkUser = async () => {
     try {
-      const storedUserId = sessionStorage.getItem('userId');
-      if (!storedUserId) {
+      const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+      if (!userData.user_id) {
         router.push('/login');
         return;
       }
-      setUserId(Number(storedUserId));
+      setUserId(userData.user_id);
     } catch (error) {
       console.error('Error checking user:', error);
       router.push('/login');
@@ -106,82 +109,233 @@ export default function FoodPage() {
     }
   };
 
-  const filteredFoodItems = foodItems.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const loadTodaysFoodSelections = async () => {
+    if (!userId) return;
+    
+    const today = new Date().toISOString().split('T')[0];
+    
+    try {
+      // Get both the daily foods record and all food items in parallel
+      const [dailyFoodsResult, allFoodsResult] = await Promise.all([
+        supabase
+          .from('user_daily_foods')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('log_date', today)
+          .single(),
+        supabase
+          .from('fooddatabase')
+          .select('*')
+      ]);
 
-  const handleAddFood = (food: FoodItem) => {
-    const existingFood = selectedFoods.find(f => f.food_id === food.food_id);
-    if (existingFood) {
-      setSelectedFoods(prev => prev.map(f => 
-        f.food_id === food.food_id 
-          ? { ...f, quantity: f.quantity + selectedQuantity }
-          : f
-      ));
-    } else {
-      setSelectedFoods(prev => [...prev, { ...food, quantity: selectedQuantity }]);
+      if (dailyFoodsResult.error) {
+        if (dailyFoodsResult.error.code === 'PGRST116') { // No rows returned
+          return;
+        }
+        throw dailyFoodsResult.error;
+      }
+
+      if (allFoodsResult.error) {
+        throw allFoodsResult.error;
+      }
+
+      if (dailyFoodsResult.data?.selected_foods) {
+        const foodsMap = new Map(
+          allFoodsResult.data.map(food => [food.food_id, food])
+        );
+
+        const selectedFoodsWithDetails = dailyFoodsResult.data.selected_foods
+          .map((item: any) => {
+            const foodData = foodsMap.get(item.food_id);
+            if (!foodData) return null;
+            return {
+              ...foodData,
+              quantity: item.quantity
+            };
+          })
+          .filter(Boolean);
+
+        setSelectedFoods(selectedFoodsWithDetails);
+      }
+    } catch (error) {
+      console.error('Error loading today\'s food selections:', error);
     }
-    setSelectedQuantity(1);
   };
 
-  const handleRemoveFood = (foodId: number) => {
-    setSelectedFoods(prev => prev.filter(food => food.food_id !== foodId));
-  };
+  // Debounce save function to prevent too frequent updates
+  const debouncedSave = debounce(async (foods: SelectedFoodItem[]) => {
+    if (!userId) return;
+    
+    try {
+      setSaveStatus('Saving...');
+      
+      if (foods.length === 0) {
+        const today = new Date().toISOString().split('T')[0];
+        const { error } = await supabase
+          .from('user_daily_foods')
+          .delete()
+          .eq('user_id', userId)
+          .eq('log_date', today);
 
-  const handleQuantityChange = (foodId: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    setSelectedFoods(prev => prev.map(food => 
-      food.food_id === foodId 
-        ? { ...food, quantity: newQuantity }
-        : food
-    ));
-  };
+        if (error) throw error;
+        setSaveStatus('Cleared food list');
+        setTimeout(() => setSaveStatus(''), 2000);
+        return;
+      }
+      
+      const today = new Date().toISOString().split('T')[0];
+      const totals = calculateTotalMacros(foods);
+      
+      const foodSelectionsData = {
+        user_id: userId,
+        log_date: today,
+        selected_foods: foods.map(food => ({
+          food_id: food.food_id,
+          quantity: food.quantity
+        })),
+        total_calories: totals.calories,
+        total_protein: totals.protein,
+        total_carbs: totals.carbs,
+        total_fats: totals.fats
+      };
 
-  const calculateTotalNutrition = (food: SelectedFoodItem) => {
+      const { error } = await supabase
+        .from('user_daily_foods')
+        .upsert(foodSelectionsData, {
+          onConflict: 'user_id,log_date'
+        });
+
+      if (error) throw error;
+      setSaveStatus('Saved!');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (error) {
+      console.error('Error saving food selections:', error);
+      setSaveStatus('Error saving');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  }, 1000);
+
+  // Memoize the calculation functions
+  const calculateTotalNutrition = React.useCallback((food: SelectedFoodItem) => {
     return {
       calories: Math.round(food.calories * food.quantity),
       protein: Math.round(food.protein * food.quantity * 10) / 10,
       carbs: Math.round(food.carbs * food.quantity * 10) / 10,
       fats: Math.round(food.fats * food.quantity * 10) / 10
     };
-  };
+  }, []);
 
-  const calculateTotalMacros = () => {
-    return selectedFoods.reduce((totals, food) => {
+  const calculateTotalMacros = React.useCallback((foods: SelectedFoodItem[] = selectedFoods) => {
+    const totals = foods.reduce((acc, food) => {
       const nutrition = calculateTotalNutrition(food);
       return {
-        calories: totals.calories + nutrition.calories,
-        protein: totals.protein + nutrition.protein,
-        carbs: totals.carbs + nutrition.carbs,
-        fats: totals.fats + nutrition.fats
+        calories: acc.calories + nutrition.calories,
+        protein: acc.protein + nutrition.protein,
+        carbs: acc.carbs + nutrition.carbs,
+        fats: acc.fats + nutrition.fats
       };
     }, { calories: 0, protein: 0, carbs: 0, fats: 0 });
+
+    // Store the total calories in sessionStorage
+    sessionStorage.setItem('foodPageCalories', JSON.stringify({
+      calories: totals.calories,
+      timestamp: new Date().toISOString(),
+      foods: foods.map(food => ({
+        name: food.name,
+        quantity: food.quantity,
+        calories: calculateTotalNutrition(food).calories
+      }))
+    }));
+
+    return totals;
+  }, [calculateTotalNutrition, selectedFoods]);
+
+  const filteredFoodItems = foodItems.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Update handlers to use debounced save
+  const handleAddFood = (food: FoodItem) => {
+    const existingFood = selectedFoods.find(f => f.food_id === food.food_id);
+    const newFoods = existingFood
+      ? selectedFoods.map(f => 
+          f.food_id === food.food_id 
+            ? { ...f, quantity: f.quantity + selectedQuantity }
+            : f
+        )
+      : [...selectedFoods, { ...food, quantity: selectedQuantity }];
+    
+    setSelectedFoods(newFoods);
+    setSelectedQuantity(1);
+    debouncedSave(newFoods);
   };
 
+  const handleRemoveFood = (foodId: number) => {
+    const newFoods = selectedFoods.filter(food => food.food_id !== foodId);
+    setSelectedFoods(newFoods);
+    debouncedSave(newFoods);
+  };
+
+  const handleQuantityChange = (foodId: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+    const newFoods = selectedFoods.map(food => 
+      food.food_id === foodId 
+        ? { ...food, quantity: newQuantity }
+        : food
+    );
+    setSelectedFoods(newFoods);
+    debouncedSave(newFoods);
+  };
+
+  // Add debounce utility function at the top of the file
+  function debounce<T extends (...args: any[]) => any>(
+    func: T,
+    wait: number
+  ): (...args: Parameters<T>) => void {
+    let timeout: NodeJS.Timeout;
+    return (...args: Parameters<T>) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), wait);
+    };
+  }
+
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-[#121212] p-8">
       <div className="mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold">Food & Nutrition</h1>
-          <button
-            onClick={() => setShowFoodList(!showFoodList)}
-            className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-          >
-            {showFoodList ? 'Hide Food List' : 'Add Food'}
-          </button>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold text-white">Food & Nutrition</h1>
+          <div className="flex items-center gap-4">
+            {saveStatus && (
+              <span className={`text-sm ${
+                saveStatus === 'Error saving' 
+                  ? 'text-red-400' 
+                  : saveStatus === 'Saving...' 
+                    ? 'text-yellow-400'
+                    : 'text-green-400'
+              }`}>
+                {saveStatus}
+              </span>
+            )}
+            <button
+              onClick={() => setShowFoodList(!showFoodList)}
+              className="bg-[#3730a3] text-white px-6 py-2 rounded-md hover:bg-[#312e81] transition-colors"
+            >
+              {showFoodList ? 'Hide Food List' : 'Add Food'}
+            </button>
+          </div>
         </div>
 
         {showFoodList && (
-          <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+          <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-xl mb-6">
             <input
               type="text"
               placeholder="Search food items..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full p-2 border rounded-lg mb-4"
+              className="w-full p-3 bg-[#2D2D2D] text-white border border-[#3D3D3D] rounded-lg mb-4 focus:outline-none focus:border-gray-300"
             />
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-gray-300 mb-2">
                 Default Quantity
               </label>
               <input
@@ -189,18 +343,18 @@ export default function FoodPage() {
                 min="1"
                 value={selectedQuantity}
                 onChange={(e) => setSelectedQuantity(Number(e.target.value))}
-                className="w-24 p-2 border rounded-lg"
+                className="w-24 p-3 bg-[#2D2D2D] text-white border border-[#3D3D3D] rounded-lg focus:outline-none focus:border-gray-300"
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredFoodItems.map((food) => (
                 <div
                   key={food.food_id}
-                  className="border p-4 rounded-lg hover:bg-gray-50 cursor-pointer"
+                  className="bg-[#2D2D2D] p-4 rounded-lg hover:bg-[#363636] cursor-pointer border border-[#3D3D3D]"
                   onClick={() => handleAddFood(food)}
                 >
-                  <h3 className="font-semibold">{food.name}</h3>
-                  <div className="text-sm text-gray-600">
+                  <h3 className="font-semibold text-white mb-2">{food.name}</h3>
+                  <div className="text-gray-300 space-y-1">
                     <p>Calories: {food.calories} kcal</p>
                     <p>Protein: {food.protein}g</p>
                     <p>Carbs: {food.carbs}g</p>
@@ -212,38 +366,44 @@ export default function FoodPage() {
           </div>
         )}
 
-        <div className="bg-white p-4 rounded-lg shadow-md">
-          <h2 className="text-xl font-semibold mb-4">Your Food List</h2>
+        <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-xl">
+          <h2 className="text-2xl font-bold text-white mb-4">Your Food List</h2>
           {selectedFoods.length === 0 ? (
-            <p className="text-gray-500">No foods added yet</p>
+            <p className="text-gray-400">No foods added yet</p>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {selectedFoods.map((food) => {
                   const totalNutrition = calculateTotalNutrition(food);
                   return (
                     <div
                       key={food.food_id}
-                      className="border p-4 rounded-lg relative"
+                      className="bg-[#2D2D2D] p-4 rounded-lg relative border border-[#3D3D3D]"
                     >
                       <button
-                        onClick={() => handleRemoveFood(food.food_id)}
-                        className="absolute top-2 right-2 text-red-500 hover:text-red-700"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveFood(food.food_id);
+                        }}
+                        className="absolute top-2 right-2 text-gray-400 hover:text-white text-xl"
                       >
                         ×
                       </button>
-                      <h3 className="font-semibold">{food.name}</h3>
-                      <div className="flex items-center gap-2 my-2">
-                        <label className="text-sm text-gray-600">Quantity:</label>
+                      <h3 className="font-semibold text-white mb-2">{food.name}</h3>
+                      <div className="flex items-center gap-2 mb-3">
+                        <label className="text-gray-300">Quantity:</label>
                         <input
                           type="number"
                           min="1"
                           value={food.quantity}
-                          onChange={(e) => handleQuantityChange(food.food_id, Number(e.target.value))}
-                          className="w-16 p-1 border rounded text-sm"
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleQuantityChange(food.food_id, Number(e.target.value));
+                          }}
+                          className="w-20 p-2 bg-[#363636] text-white border border-[#3D3D3D] rounded-md focus:outline-none focus:border-gray-300"
                         />
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-gray-300 space-y-1">
                         <p>Total Calories: {totalNutrition.calories} kcal</p>
                         <p>Total Protein: {totalNutrition.protein}g</p>
                         <p>Total Carbs: {totalNutrition.carbs}g</p>
@@ -255,24 +415,24 @@ export default function FoodPage() {
               </div>
 
               {/* Total Macros Summary */}
-              <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-semibold mb-3">Total Daily Macros</h3>
+              <div className="bg-[#2D2D2D] p-4 rounded-lg border border-[#3D3D3D]">
+                <h3 className="text-xl font-semibold text-white mb-4">Total Daily Macros</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <p className="text-sm text-gray-600">Total Calories</p>
-                    <p className="text-xl font-bold text-blue-600">{calculateTotalMacros().calories} kcal</p>
+                  <div className="bg-[#363636] p-4 rounded-lg">
+                    <p className="text-gray-300 mb-1">Total Calories</p>
+                    <p className="text-2xl font-bold text-blue-400">{calculateTotalMacros().calories} kcal</p>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <p className="text-sm text-gray-600">Total Protein</p>
-                    <p className="text-xl font-bold text-green-600">{calculateTotalMacros().protein}g</p>
+                  <div className="bg-[#363636] p-4 rounded-lg">
+                    <p className="text-gray-300 mb-1">Total Protein</p>
+                    <p className="text-2xl font-bold text-green-400">{calculateTotalMacros().protein}g</p>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <p className="text-sm text-gray-600">Total Carbs</p>
-                    <p className="text-xl font-bold text-yellow-600">{calculateTotalMacros().carbs}g</p>
+                  <div className="bg-[#363636] p-4 rounded-lg">
+                    <p className="text-gray-300 mb-1">Total Carbs</p>
+                    <p className="text-2xl font-bold text-yellow-400">{calculateTotalMacros().carbs}g</p>
                   </div>
-                  <div className="text-center p-3 bg-white rounded-lg shadow-sm">
-                    <p className="text-sm text-gray-600">Total Fats</p>
-                    <p className="text-xl font-bold text-red-600">{calculateTotalMacros().fats}g</p>
+                  <div className="bg-[#363636] p-4 rounded-lg">
+                    <p className="text-gray-300 mb-1">Total Fats</p>
+                    <p className="text-2xl font-bold text-red-400">{calculateTotalMacros().fats}g</p>
                   </div>
                 </div>
               </div>
@@ -281,19 +441,19 @@ export default function FoodPage() {
         </div>
       </div>
 
-      <div className="bg-white p-4 rounded-lg shadow-md">
-        <h2 className="text-xl font-semibold mb-4">Your Meal Plans</h2>
+      <div className="bg-[#1E1E1E] p-6 rounded-lg shadow-xl">
+        <h2 className="text-2xl font-bold text-white mb-4">Your Meal Plans</h2>
         {loading ? (
-          <p>Loading meal plans...</p>
+          <p className="text-gray-300">Loading meal plans...</p>
         ) : mealPlans.length === 0 ? (
-          <p className="text-gray-500">No meal plans assigned yet</p>
+          <p className="text-gray-400">No meal plans assigned yet</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {mealPlans.map((plan) => (
-              <div key={plan.meal_plan_id} className="border p-4 rounded-lg">
-                <h3 className="font-semibold">{plan.plan_name}</h3>
-                <p className="text-gray-600 mb-2">{plan.description}</p>
-                <div className="text-sm">
+              <div key={plan.meal_plan_id} className="bg-[#2D2D2D] p-4 rounded-lg border border-[#3D3D3D]">
+                <h3 className="font-semibold text-white mb-2">{plan.plan_name}</h3>
+                <p className="text-gray-300 mb-3">{plan.description}</p>
+                <div className="text-gray-300 space-y-1">
                   <p>Calories per day: {plan.calories_per_day} kcal</p>
                   <p>Duration: {plan.duration} days</p>
                   <p>Assigned by: {plan.trainer_name}</p>

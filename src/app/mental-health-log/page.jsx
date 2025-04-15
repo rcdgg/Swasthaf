@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 export default function MentalHealthLog() {
   const [previousLogs, setPreviousLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
   
   useEffect(() => {
     const butterfly = document.querySelector(".butterfly");
@@ -67,7 +68,11 @@ export default function MentalHealthLog() {
     const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
     const userId = userData.user_id;
 
-    if (!userId) return;
+    if (!userId) {
+      console.log("No user ID found");
+      setLoading(false);
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -77,9 +82,12 @@ export default function MentalHealthLog() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
+      console.log("Fetched logs:", data);
       setPreviousLogs(data || []);
     } catch (err) {
       console.error("Error fetching previous logs:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -348,73 +356,58 @@ export default function MentalHealthLog() {
 </div>
 
         {/* Previous Logs Section */}
-        <div
-          style={{
-            backgroundColor: "rgba(254, 248, 224, 0.9)",
-            backdropFilter: "blur(15px)",
-            padding: "1.5rem",
-            borderRadius: "1.5rem",
-            maxWidth: "1000px",
-            margin: "2rem auto",
-            boxShadow: "0 0 25px 10px rgba(254, 248, 224, 0.5)",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: "2.5rem",
-              textTransform: "uppercase",
-              color: "#000",
-              fontWeight: "600",
-              marginBottom: "1.5rem",
-              textAlign: "center",
-              fontFamily: "'Love Ya Like A Sister', cursive",
-            }}
-          >
+        <div style={{
+          marginTop: "2rem",
+          borderTop: "2px solid rgba(0, 0, 0, 0.1)",
+          paddingTop: "2rem",
+        }}>
+          <h2 style={{
+            fontSize: "1.5rem",
+            marginBottom: "1rem",
+            color: "#333",
+          }}>
             Previous Logs
           </h2>
           
-          {previousLogs.length === 0 ? (
-            <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#666" }}>
-              No previous logs found
-            </p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+          {loading ? (
+            <p>Loading previous logs...</p>
+          ) : previousLogs.length > 0 ? (
+            <div style={{
+              display: "grid",
+              gap: "1rem",
+              maxHeight: "400px",
+              overflowY: "auto",
+              padding: "1rem",
+              backgroundColor: "rgba(255, 255, 255, 0.5)",
+              borderRadius: "0.5rem",
+            }}>
               {previousLogs.map((log, index) => (
-                <div
-                  key={index}
-                  style={{
-                    backgroundColor: "#fffceb",
-                    padding: "1.5rem",
-                    borderRadius: "1rem",
-                    border: "2px solid #ccc",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                    <span style={{ fontSize: "1.2rem", color: "#666" }}>
-                      {new Date(log.created_at).toLocaleDateString()}
-                    </span>
-                    <span style={{ fontSize: "1.2rem", color: "#666" }}>
-                      {new Date(log.created_at).toLocaleTimeString()}
-                    </span>
+                <div key={index} style={{
+                  padding: "1rem",
+                  backgroundColor: "rgba(255, 255, 255, 0.8)",
+                  borderRadius: "0.5rem",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                }}>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <strong>Date:</strong> {new Date(log.created_at).toLocaleDateString()}
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
-                    <div>
-                      <strong style={{ color: "#000" }}>Mood:</strong> {log.mood}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#000" }}>Stress Level:</strong> {log.stress_level}/10
-                    </div>
-                    <div>
-                      <strong style={{ color: "#000" }}>Sleep Quality:</strong>{" "}
-                      {log.sleep_quality === 3 ? "Great" : log.sleep_quality === 2 ? "Okay" : "Poor"}
-                    </div>
-                    <div>
-                      <strong style={{ color: "#000" }}>Thoughts:</strong> {log.entry_state}
-                    </div>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <strong>Mood:</strong> {log.mood}
+                  </div>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <strong>Stress Level:</strong> {log.stress_level}
+                  </div>
+                  <div style={{ marginBottom: "0.5rem" }}>
+                    <strong>Sleep Quality:</strong> {log.sleep_quality}
+                  </div>
+                  <div>
+                    <strong>Thoughts:</strong> {log.entry_state}
                   </div>
                 </div>
               ))}
             </div>
+          ) : (
+            <p>No previous logs found.</p>
           )}
         </div>
       </section>
@@ -458,11 +451,11 @@ async function handleLogSubmit() {
 
   const logEntry = {
     user_id: userId,
-    mood: moood,  // Default mood for testing
+    mood: moood,
     stress_level: stress,
     sleep_quality: mappedSleep,
     entry_state: thoughts,
-    // log_date: new Date().toISOString().split("T")[0] + "T00:00:00",
+    created_at: new Date().toISOString(),
   };
 
   console.log("📦 Submitting logEntry:", logEntry);
@@ -479,7 +472,7 @@ async function handleLogSubmit() {
       console.log("✅ Log saved:", data);
       alert("Log saved!");
       // Refresh the logs after successful submission
-      fetchPreviousLogs();
+      await fetchPreviousLogs();
     }
   } catch (err) {
     console.error("🔥 Exception during Supabase insert:", err);

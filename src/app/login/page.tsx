@@ -32,14 +32,20 @@ export default function LoginPage() {
 
       // Hash password for user/trainer login
       const hashedPassword = createHash('md5').update(password).digest('hex');
+      const normalizedEmail = email.toLowerCase();
+      console.log('Email:', normalizedEmail);
+      console.log('Hashed Password:', hashedPassword);
 
       // Regular user/trainer login
       const { data: userData, error: userError } = await supabase
-        .from("users")
+        .from("User")
         .select("*")
-        .eq("email", email)
-        .eq("password", hashedPassword)
+        .eq("email", normalizedEmail)
+        .eq("password_hash", hashedPassword) // Compare with 'password_hash' attribute
         .single();
+
+      console.log('Supabase Error:', userError);
+      console.log('Supabase Data:', userData);
 
       if (userError) {
         throw new Error('Invalid email or password');
@@ -133,4 +139,4 @@ export default function LoginPage() {
       </div>
     </div>
   );
-} 
+}
