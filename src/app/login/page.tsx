@@ -30,6 +30,27 @@ export default function LoginPage() {
         }
       }
 
+      if ((userType as UserType) === 'trainer') {
+        // Hardcoded trainer login logic
+        if (email === 'trainer@example.com' && password === 'trainer123') {
+          const hardcodedTrainerData = {
+            id: 1,
+            name: 'Hardcoded Trainer',
+            email: 'trainer.example.com',
+          };
+
+          // Store trainer data in session storage
+          sessionStorage.setItem("trainerData", JSON.stringify(hardcodedTrainerData));
+          sessionStorage.setItem("userType", "trainer");
+
+          // Redirect to trainer dashboard
+          router.push("/trainer");
+          return;
+        } else {
+          throw new Error('Invalid email or password for trainer');
+        }
+      }
+
       // Hash password for user/trainer login
       const hashedPassword = createHash('md5').update(password).digest('hex');
       const normalizedEmail = email.toLowerCase();
