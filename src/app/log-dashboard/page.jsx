@@ -193,81 +193,68 @@ export default function MentalHealthLog() {
 
       {/* RIGHT HALF */}
       <div
-  onClick={() => window.location.href = "/progress-log"} // or use next/router
-  style={{
-    width: "50%",
-    height: "100vh",
-    backgroundImage: "url('/images/bg1.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    color: "#fff",
-    padding: "2rem",
-    textAlign: "center",
-    flexDirection: "column",
-    position: "relative",
-    transition: "transform 0.3s ease-in-out",
-    cursor: "pointer",
-  }}
-  onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
-  onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
->
+        onClick={() => window.location.href = "/progress-log"}
+        style={{
+          width: "50%",
+          height: "100vh",
+          backgroundImage: "url('/images/bg1.jpg')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "#fff",
+          padding: "2rem",
+          textAlign: "center",
+          flexDirection: "column",
+          position: "relative",
+          transition: "transform 0.3s ease-in-out",
+          cursor: "pointer",
+        }}
+        onMouseEnter={(e) => e.currentTarget.style.transform = "scale(1.02)"}
+        onMouseLeave={(e) => e.currentTarget.style.transform = "scale(1)"}
+      >
+        {/* Running Girl Image */}
+        <img
+          src="/images/run.png"
+          alt="Running Girl"
+          style={{
+            position: "absolute",
+            top: "200px",
+            left: "15%",
+            width: "500px",
+            height: "auto",
+            zIndex: 1,
+          }}
+        />
 
-  {/* Running Girl Image */}
-  <img
-    src="/images/run.png"
-    alt="Running Girl"
-    style={{
-      position: "absolute", // Position the image absolutely within the container
-      top: "200px",         // Adjust position as needed
-      left: "15%",          // Adjust left position as needed
-      width: "500px",       // Size of the image
-      height: "auto",
-      zIndex: 1,            // Make sure the image is behind the text
-    }}
-  />
-
-  {/* M O text, positioned above the image */}
-  <div
-    style={{
-      fontFamily: "'Staatliches', sans-serif",
-      fontSize: "15rem",
-      lineHeight: "1",
-      textAlign: "center",
-      letterSpacing: "4rem",
-      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-      position: "absolute",  // Position this text absolutely
-      top: "250px",          // Adjust to position it above the image
-      left: "50%",
-      transform: "translateX(-50%)", // To center the text horizontally
-      zIndex: 2,            // Place it above the image
-    }}
-  >
-    <div>M O</div>
-  </div>
-
-  {/* V E text, positioned below the image */}
-  <div
-    style={{
-      fontFamily: "'Staatliches', sans-serif",
-      fontSize: "15rem",
-      lineHeight: "1",
-      textAlign: "center",
-      letterSpacing: "4rem",
-      textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
-      position: "absolute",  // Position this text absolutely
-      bottom: "100px",       // Adjust to position it below the image
-      left: "50%",
-      top: "500px",
-      transform: "translateX(-50%)", // To center the text horizontally
-      zIndex: 0,            // Place it above the image
-    }}
-  >
-    <div>V E</div>
-  </div>
-</div>
+        {/* M O V E text */}
+        <section
+          style={{
+            height: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            textAlign: "center",
+            padding: "2rem",
+            zIndex: 1,
+            position: "relative",
+            letterSpacing: "4rem",
+          }}
+        >
+          <h1
+            style={{
+              fontSize: "15rem",
+              lineHeight: "1.2",
+              fontWeight: "normal",
+              textShadow: "2px 2px 4px rgba(0,0,0,0.8)",
+              fontFamily: "'Staatliches', sans-serif",
+            }}
+          >
+            M  O<br />V  E
+          </h1>
+        </section>
+      </div>
 
 
     </div>

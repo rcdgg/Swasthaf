@@ -115,175 +115,140 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Create your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
-          <div className="rounded-md shadow-sm space-y-4">
+    <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+      <div className="bg-[#1E1E1E] p-8 rounded-lg shadow-xl w-full max-w-md">
+        <h1 className="text-3xl font-bold text-white mb-6 text-center">Sign Up</h1>
+        {error && <p className="text-red-400 mb-4 text-center">{error}</p>}
+        <form onSubmit={handleSignup} className="space-y-6">
+          <div>
+            <label htmlFor="name" className="block text-gray-300 mb-2 text-sm">
+              Name
+            </label>
+            <input
+              id="name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-gray-300 mb-2 text-sm">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="block text-gray-300 mb-2 text-sm">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div>
+            <label htmlFor="confirm-password" className="block text-gray-300 mb-2 text-sm">
+              Confirm Password
+            </label>
+            <input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
+              required
+            />
+          </div>
+          <div className="space-y-6">
             <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                Full Name
-              </label>
-              <input
-                id="name"
-                name="name"
-                type="text"
-                autoComplete="name"
-                required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Full Name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700">
-                Confirm Password
-              </label>
-              <input
-                id="confirm-password"
-                name="confirm-password"
-                type="password"
-                autoComplete="new-password"
-                required
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="age" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="age" className="block text-gray-300 mb-2 text-sm">
                 Age (optional)
               </label>
               <input
                 id="age"
-                name="age"
                 type="number"
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Age"
                 value={age}
                 onChange={(e) => setAge(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label htmlFor="weight" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="weight" className="block text-gray-300 mb-2 text-sm">
                 Weight (kg) (optional)
               </label>
               <input
                 id="weight"
-                name="weight"
                 type="number"
                 step="0.1"
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Weight in kg"
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label htmlFor="height" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="height" className="block text-gray-300 mb-2 text-sm">
                 Height (cm) (optional)
               </label>
               <input
                 id="height"
-                name="height"
                 type="number"
                 step="0.1"
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Height in cm"
                 value={height}
                 onChange={(e) => setHeight(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label htmlFor="goal" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="goal" className="block text-gray-300 mb-2 text-sm">
                 Fitness Goal (optional)
               </label>
               <input
                 id="goal"
-                name="goal"
                 type="text"
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="e.g., Weight loss, Muscle gain"
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
               />
             </div>
             <div>
-              <label htmlFor="dietary-preferences" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="dietary-preferences" className="block text-gray-300 mb-2 text-sm">
                 Dietary Preferences (optional)
               </label>
               <textarea
                 id="dietary-preferences"
-                name="dietary-preferences"
                 rows={3}
-                className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="e.g., Vegetarian, Gluten-free"
                 value={dietaryPreferences}
                 onChange={(e) => setDietaryPreferences(e.target.value)}
+                className="w-full p-3 rounded-lg bg-[#2D2D2D] text-white border border-[#3D3D3D] focus:outline-none focus:border-blue-500"
               />
             </div>
           </div>
-
-          {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
-          )}
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign up
-            </button>
-          </div>
-
-          <div className="text-center">
-            <a
-              href="/login"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
-              Already have an account? Sign in
-            </a>
-          </div>
+          <button
+            type="submit"
+            className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold mt-6"
+          >
+            Sign Up
+          </button>
         </form>
+        <p className="mt-6 text-center text-gray-400 text-sm">
+          Already have an account?{" "}
+          <a href="/login" className="text-blue-500 hover:text-blue-400">
+            Login
+          </a>
+        </p>
       </div>
     </div>
   );

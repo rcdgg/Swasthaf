@@ -1,10 +1,11 @@
 "use client";
 import { supabase } from '../../supabaseClient';
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 // import './globals.css';  // or wherever your global CSS file is
 
 
 export default function MentalHealthLog() {
+  const [previousLogs, setPreviousLogs] = useState([]);
   
   useEffect(() => {
     const butterfly = document.querySelector(".butterfly");
@@ -57,8 +58,31 @@ export default function MentalHealthLog() {
       dot.style.animationDuration = `${randomAnimationDuration}s`;
       dot.style.animationDelay = `${randomDelay}s`;
     });
+
+    // Fetch previous logs
+    fetchPreviousLogs();
   }, []);
   
+  const fetchPreviousLogs = async () => {
+    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+    const userId = userData.user_id;
+
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("mentalhealthlog")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPreviousLogs(data || []);
+    } catch (err) {
+      console.error("Error fetching previous logs:", err);
+    }
+  };
+
   return (
     <div
       style={{
@@ -70,7 +94,7 @@ export default function MentalHealthLog() {
         backgroundAttachment: "fixed",  // Keep background fixed
         overflowX: "hidden",  // Prevent horizontal scroll
         fontFamily: "'Love Ya Like A Sister', cursive",
-        color: "#fff",
+        color: "#000",  // Changed from #fff to #000
       }}
     >
       {/* Twinkling Stars */}
@@ -171,6 +195,7 @@ export default function MentalHealthLog() {
             lineHeight: "1.4",
             fontWeight: "normal",
             textShadow: "2px 2px 4px rgba(0,0,0,1)",
+            color: "#fff",  // Changed back to white
           }}
         >
           HOW ARE<br />      YOU FEELING
@@ -321,6 +346,77 @@ export default function MentalHealthLog() {
 >
   LOG IT
 </div>
+
+        {/* Previous Logs Section */}
+        <div
+          style={{
+            backgroundColor: "rgba(254, 248, 224, 0.9)",
+            backdropFilter: "blur(15px)",
+            padding: "1.5rem",
+            borderRadius: "1.5rem",
+            maxWidth: "1000px",
+            margin: "2rem auto",
+            boxShadow: "0 0 25px 10px rgba(254, 248, 224, 0.5)",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "2.5rem",
+              textTransform: "uppercase",
+              color: "#000",
+              fontWeight: "600",
+              marginBottom: "1.5rem",
+              textAlign: "center",
+              fontFamily: "'Love Ya Like A Sister', cursive",
+            }}
+          >
+            Previous Logs
+          </h2>
+          
+          {previousLogs.length === 0 ? (
+            <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#666" }}>
+              No previous logs found
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {previousLogs.map((log, index) => (
+                <div
+                  key={index}
+                  style={{
+                    backgroundColor: "#fffceb",
+                    padding: "1.5rem",
+                    borderRadius: "1rem",
+                    border: "2px solid #ccc",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <span style={{ fontSize: "1.2rem", color: "#666" }}>
+                      {new Date(log.created_at).toLocaleDateString()}
+                    </span>
+                    <span style={{ fontSize: "1.2rem", color: "#666" }}>
+                      {new Date(log.created_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
+                    <div>
+                      <strong style={{ color: "#000" }}>Mood:</strong> {log.mood}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Stress Level:</strong> {log.stress_level}/10
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Sleep Quality:</strong>{" "}
+                      {log.sleep_quality === 3 ? "Great" : log.sleep_quality === 2 ? "Okay" : "Poor"}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Thoughts:</strong> {log.entry_state}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -377,14 +473,16 @@ async function handleLogSubmit() {
       .insert([logEntry]);
 
     if (error) {
-      console.error("❌ Supabase error:", error);  // Log full error
+      console.error("❌ Supabase error:", error);
       alert("Failed to save. Try again.");
     } else {
       console.log("✅ Log saved:", data);
       alert("Log saved!");
+      // Refresh the logs after successful submission
+      fetchPreviousLogs();
     }
   } catch (err) {
-    console.error("🔥 Exception during Supabase insert:", err);  // Log full exception
+    console.error("🔥 Exception during Supabase insert:", err);
     alert("Something went wrong. Please try again.");
   }
 }

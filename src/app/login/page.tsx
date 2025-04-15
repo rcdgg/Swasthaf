@@ -5,10 +5,12 @@ import { supabase } from '../../supabaseClient';
 import { useRouter } from 'next/navigation';
 import { createHash } from 'crypto';
 
+type UserType = 'user' | 'trainer' | 'admin';
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [userType, setUserType] = useState<'user' | 'trainer' | 'admin'>('user');
+  const [userType, setUserType] = useState<UserType>('user');
   const [error, setError] = useState('');
   const router = useRouter();
 
@@ -18,211 +20,116 @@ export default function LoginPage() {
 
     try {
       if (userType === 'admin') {
-        if (password !== '123') {
+        // Admin login with just password
+        if (password === '123') {
+          sessionStorage.setItem("userType", "admin");
+          router.push("/admin-dashboard");
+          return;
+        } else {
           throw new Error('Invalid admin password');
         }
-        // Store admin data in session storage
-        sessionStorage.setItem('userData', JSON.stringify({
-          user_id: 'admin',
-          name: 'Admin',
-          email: 'admin@example.com'
-        }));
-        sessionStorage.setItem('userType', 'admin');
-        // Redirect to admin dashboard
-        router.push('/admin-dashboard');
-      } else if (userType === 'user') {
-        // Hash the password using MD5
-        const passwordHash = createHash('md5').update(password).digest('hex');
+      }
 
-        // Check user credentials
-        const { data: user, error: userError } = await supabase
-          .from('User')
-          .select('user_id, name, email')
-          .eq('email', email)
-          .eq('password_hash', passwordHash)
-          .single();
+      // Hash password for user/trainer login
+      const hashedPassword = createHash('md5').update(password).digest('hex');
 
-        if (userError) {
-          throw new Error('Invalid email or password');
-        }
+      // Regular user/trainer login
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("*")
+        .eq("email", email)
+        .eq("password", hashedPassword)
+        .single();
 
-        if (!user) {
-          throw new Error('User not found');
-        }
+      if (userError) {
+        throw new Error('Invalid email or password');
+      }
 
-        // Store user data in session storage
-        sessionStorage.setItem('userData', JSON.stringify(user));
-        sessionStorage.setItem('userType', 'user');
+      // Store user data in session storage
+      sessionStorage.setItem("userData", JSON.stringify(userData));
+      sessionStorage.setItem("userType", userType);
 
-        // Redirect to user dashboard
-        router.push('/user-dashboard');
+      // Redirect based on user type
+      if (userType === 'trainer') {
+        router.push("/trainer-dashboard");
       } else {
-        console.log('Attempting trainer login with name:', password);
-
-        // First, let's check what trainers exist in the database
-        const { data: allTrainers, error: listError } = await supabase
-          .from('trainerandnutritionist')
-          .select('name');
-
-        if (listError) {
-          console.error('Error listing trainers:', listError);
-        } else {
-          console.log('Available trainers:', allTrainers);
-        }
-
-        // For trainer login, check if the name exists in TrainerAndNutritionist table
-        const { data: trainer, error: trainerError } = await supabase
-          .from('trainerandnutritionist')
-          .select('trainer_id, name')
-          .ilike('name', `%${password}%`) // Using wildcards for more flexible matching
-          .single();
-
-        console.log('Trainer query result:', { trainer, trainerError });
-
-        if (trainerError) {
-          console.error('Trainer login error:', trainerError);
-          throw new Error(`Invalid trainer name: ${trainerError.message}`);
-        }
-
-        if (!trainer) {
-          throw new Error('Trainer not found. Please check the name and try again.');
-        }
-
-        // Store trainer data in session storage
-        sessionStorage.setItem('userData', JSON.stringify({
-          user_id: trainer.trainer_id,
-          name: trainer.name,
-          email: 'trainer@example.com' // Placeholder email for trainers
-        }));
-        sessionStorage.setItem('userType', 'trainer');
-
-        // Redirect to trainer dashboard
-        router.push('/trainer-dashboard');
+        router.push("/user-dashboard");
       }
     } catch (error: any) {
-      console.error('Login error:', error);
-      setError(error.message || 'An error occurred during login');
+      setError(error.message);
     }
   };
 
+  const isAdminLogin = userType === 'admin';
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full space-y-8 p-8 bg-white rounded-xl shadow-lg">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Sign in to your account
-          </h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="rounded-md shadow-sm space-y-4">
-            <div>
-              <label htmlFor="user-type" className="block text-sm font-medium text-gray-700">
-                I am a
+    <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8">
+        <h1 className="text-4xl font-bold text-white text-center tracking-tight drop-shadow-glow">
+          Sign in to your account
+        </h1>
+        {error && <p className="text-red-400 text-center">{error}</p>}
+        <form onSubmit={handleLogin} className="space-y-6 mt-8">
+          <div className="space-y-2">
+            <label htmlFor="userType" className="block text-gray-300 text-base">
+              I am a
+            </label>
+            <select
+              id="userType"
+              value={userType}
+              onChange={(e) => setUserType(e.target.value as UserType)}
+              className="w-full p-3 bg-[#1E1E1E] text-white rounded-lg border border-gray-600 focus:border-gray-300 focus:ring-1 focus:ring-gray-300 placeholder-gray-500"
+              required
+            >
+              <option value="user" className="bg-[#1E1E1E]">User</option>
+              <option value="trainer" className="bg-[#1E1E1E]">Trainer</option>
+              <option value="admin" className="bg-[#1E1E1E]">Admin</option>
+            </select>
+          </div>
+          {!isAdminLogin && (
+            <div className="space-y-2">
+              <label htmlFor="email" className="block text-gray-300 text-base">
+                Email address
               </label>
-              <select
-                id="user-type"
-                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                value={userType}
-                onChange={(e) => setUserType(e.target.value as 'user' | 'trainer' | 'admin')}
-              >
-                <option value="user">User</option>
-                <option value="trainer">Trainer</option>
-                <option value="admin">Admin</option>
-              </select>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full p-3 bg-[#1E1E1E] text-white rounded-lg border border-gray-600 focus:border-gray-300 focus:ring-1 focus:ring-gray-300 placeholder-gray-500"
+                placeholder="Email address"
+                required={!isAdminLogin}
+              />
             </div>
-
-            {userType === 'user' ? (
-              <>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                    Email address
-                  </label>
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                    Password
-                  </label>
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    autoComplete="current-password"
-                    required
-                    className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                    placeholder="Password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
-                </div>
-              </>
-            ) : userType === 'trainer' ? (
-              <div>
-                <label htmlFor="trainer-name" className="block text-sm font-medium text-gray-700">
-                  Trainer Name
-                </label>
-                <input
-                  id="trainer-name"
-                  name="trainer-name"
-                  type="text"
-                  required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Enter your trainer name"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            ) : (
-              <div>
-                <label htmlFor="admin-password" className="block text-sm font-medium text-gray-700">
-                  Admin Password
-                </label>
-                <input
-                  id="admin-password"
-                  name="admin-password"
-                  type="password"
-                  required
-                  className="appearance-none rounded-md relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Enter admin password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
-              </div>
-            )}
-          </div>
-
-          {error && (
-            <div className="text-red-500 text-sm text-center">{error}</div>
           )}
-
-          <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Sign in
-            </button>
+          <div className="space-y-2">
+            <label htmlFor="password" className="block text-gray-300 text-base">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 bg-[#1E1E1E] text-white rounded-lg border border-gray-600 focus:border-gray-300 focus:ring-1 focus:ring-gray-300 placeholder-gray-500"
+              placeholder={isAdminLogin ? 'Admin password' : 'Password'}
+              required
+            />
           </div>
-
-          <div className="text-center">
-            <a
-              href="/signup"
-              className="font-medium text-indigo-600 hover:text-indigo-500"
-            >
+          <button
+            type="submit"
+            className="w-full p-3 bg-[#3730a3] text-white rounded-lg hover:bg-[#312e81] transition-colors font-medium text-base"
+          >
+            Sign in
+          </button>
+        </form>
+        {!isAdminLogin && (
+          <p className="text-center">
+            <a href="/signup" className="text-[#6366f1] hover:text-[#818cf8] text-base">
               Don't have an account? Sign up
             </a>
-          </div>
-        </form>
+          </p>
+        )}
       </div>
     </div>
   );

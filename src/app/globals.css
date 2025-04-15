@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display&display=swap'); /* Or whichever you pick */
 @import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap');
 
 @font-face {
   font-family: 'Love Ya Like A Sister';
@@ -13,6 +18,9 @@
   --foreground: #171717;
   --font-sans: 'Playfair Display', serif;  /* Change this line */
   --font-mono: 'Courier New', monospace;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
 }
 
 html {
@@ -37,6 +45,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);  /* Applies the formal font globally */
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  font-family: 'Inter', sans-serif;
 }
 /* globals.css or any global CSS file */
 .twinkling-stars {
@@ -175,5 +191,9 @@ body {
   transition: transform 0.09s ease-out; /* smoother */
   z-index: 0;
   pointer-events: none;
+}
+
+.drop-shadow-glow {
+  filter: drop-shadow(0 0 0.75rem rgba(255, 255, 255, 0.25));
 }
 

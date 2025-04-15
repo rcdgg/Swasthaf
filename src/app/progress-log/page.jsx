@@ -5,7 +5,79 @@ import { useEffect, useState } from "react";
 
 
 export default function ProgressLog() {
-  // const [prevScrollPos, setPrevScrollPos] = useState(0);
+  const [previousLogs, setPreviousLogs] = useState([]);
+  
+  useEffect(() => {
+    fetchPreviousLogs();
+  }, []);
+
+  const fetchPreviousLogs = async () => {
+    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+    const userId = userData.user_id;
+
+    if (!userId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("progresslog")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setPreviousLogs(data || []);
+    } catch (err) {
+      console.error("Error fetching previous logs:", err);
+    }
+  };
+
+  const handleLogSubmit = async () => {
+    const wt = parseFloat(document.getElementById("weight").value);
+    const bmii = parseFloat(document.getElementById("bmi").value);
+    const caloriesConsumed = parseInt(document.getElementById("calories_consumed").value);
+    const caloriesBurned = parseInt(document.getElementById("calories_burned").value);
+    const waterIntake = parseInt(document.getElementById("water_intake").value);
+    const sleepHours = parseFloat(document.getElementById("sleep_hours").value);
+
+    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+    const userId = userData.user_id;
+
+    if (!userId) {
+      alert("User not logged in. Please log in again.");
+      return;
+    }
+
+    const logEntry = {
+      user_id: userId,
+      weight: wt,
+      bmi: bmii,
+      calories_consumed: caloriesConsumed,
+      calories_burned: caloriesBurned,
+      water_intake: waterIntake,
+      sleep_hours: sleepHours,
+      log_date: new Date().toISOString().split("T")[0] + "T00:00:00"
+    };
+
+    console.log("📦 Submitting progress log:", logEntry);
+
+    try {
+      const { data, error } = await supabase
+        .from("progresslog")
+        .insert([logEntry]);
+
+      if (error) {
+        console.error("❌ Supabase error:", error);
+        alert("Failed to save. Try again.");
+      } else {
+        console.log("✅ Progress log saved:", data);
+        alert("Log saved!");
+        fetchPreviousLogs();
+      }
+    } catch (err) {
+      console.error("🔥 Exception during Supabase insert:", err);
+      alert("Something went wrong. Please try again.");
+    }
+  };
 
   useEffect(() => {
     const girl = document.querySelector(".running-girl");
@@ -38,7 +110,7 @@ export default function ProgressLog() {
         backgroundAttachment: "fixed",  // Keep background fixed
         overflowX: "hidden",  // Prevent horizontal scroll
         fontFamily: "'Staatliches', sans-serif",
-        color: "#fff",
+        color: "#000",  // Changed from #fff to #000
       }}
     >
       
@@ -68,6 +140,7 @@ export default function ProgressLog() {
             lineHeight: "1.2",
             fontWeight: "normal",
             textShadow: "2px 2px 4px rgba(0,0,0,1)",
+            color: "#fff",  // Changed back to white
           }}
         >
           YOU <br/> <span style={{ color: "yellow" }}>MOVED</span> <br /> TODAY
@@ -134,7 +207,7 @@ export default function ProgressLog() {
 
         </div>
         <div
-  onClick={handleLogSubmit} // 🟢 Add this line
+  onClick={handleLogSubmit}
   style={{
     marginTop: "5rem",
     backgroundColor: "#E3E2DE",
@@ -163,6 +236,82 @@ export default function ProgressLog() {
 >
   LOG IT
 </div>
+
+        {/* Previous Logs Section */}
+        <div
+          style={{
+            backgroundColor: "rgba(254, 248, 224, 0.9)",
+            backdropFilter: "blur(15px)",
+            padding: "1.5rem",
+            borderRadius: "1.5rem",
+            maxWidth: "1000px",
+            margin: "2rem auto",
+            boxShadow: "0 0 25px 10px rgba(254, 248, 224, 0.5)",
+          }}
+        >
+          <h2
+            style={{
+              fontSize: "2.5rem",
+              textTransform: "uppercase",
+              color: "#000",
+              fontWeight: "600",
+              marginBottom: "1.5rem",
+              textAlign: "center",
+              fontFamily: "'Love Ya Like A Sister', cursive",
+            }}
+          >
+            Previous Logs
+          </h2>
+          
+          {previousLogs.length === 0 ? (
+            <p style={{ textAlign: "center", fontSize: "1.5rem", color: "#000" }}>
+              No previous logs found
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+              {previousLogs.map((log, index) => (
+                <div
+                  key={index}
+                  style={{
+                    backgroundColor: "#fffceb",
+                    padding: "1.5rem",
+                    borderRadius: "1rem",
+                    border: "2px solid #ccc",
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                    <span style={{ fontSize: "1.2rem", color: "#000" }}>
+                      {new Date(log.created_at).toLocaleDateString()}
+                    </span>
+                    <span style={{ fontSize: "1.2rem", color: "#000" }}>
+                      {new Date(log.created_at).toLocaleTimeString()}
+                    </span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "1rem" }}>
+                    <div>
+                      <strong style={{ color: "#000" }}>Weight:</strong> {log.weight} kg
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>BMI:</strong> {log.bmi}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Calories Consumed:</strong> {log.calories_consumed}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Calories Burned:</strong> {log.calories_burned}
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Water Intake:</strong> {log.water_intake} ml
+                    </div>
+                    <div>
+                      <strong style={{ color: "#000" }}>Sleep Hours:</strong> {log.sleep_hours}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );
@@ -187,53 +336,6 @@ const sleepQualityMap = {
   "Okay": 2,
   "Poor": 1,
 };
-async function handleLogSubmit() {
-  const wt = parseFloat(document.getElementById("weight").value);
-  const bmii = parseFloat(document.getElementById("bmi").value);
-  const caloriesConsumed = parseInt(document.getElementById("calories_consumed").value);
-  const caloriesBurned = parseInt(document.getElementById("calories_burned").value);
-  const waterIntake = parseInt(document.getElementById("water_intake").value);
-  const sleepHours = parseFloat(document.getElementById("sleep_hours").value);
-
-  const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
-  const userId = userData.user_id;
-
-  if (!userId) {
-    alert("User not logged in. Please log in again.");
-    return;
-  }
-
-  const logEntry = {
-    user_id: userId,
-    weight: wt,
-    bmi:bmii,
-    calories_consumed: caloriesConsumed,
-    calories_burned: caloriesBurned,
-    water_intake: waterIntake,
-    sleep_hours: sleepHours,
-    log_date: new Date().toISOString().split("T")[0] + "T00:00:00"
-, 
-  };
-
-  console.log("📦 Submitting progress log:", logEntry);
-
-  try {
-    const { data, error } = await supabase
-      .from("progresslog")
-      .insert([logEntry]);
-
-    if (error) {
-      console.error("❌ Supabase error:", error);
-      alert("Failed to save. Try again.");
-    } else {
-      console.log("✅ Progress log saved:", data);
-      alert("Log saved!");
-    }
-  } catch (err) {
-    console.error("🔥 Exception during Supabase insert:", err);
-    alert("Something went wrong. Please try again.");
-  }
-}
 
 const labelStyle = {
   fontSize: "2rem",

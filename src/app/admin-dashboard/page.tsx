@@ -80,7 +80,7 @@ interface UserModalProps {
 const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+      <div className="bg-[#121212] text-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">{user.name}'s Details</h2>
           <button
@@ -97,9 +97,9 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
           {user.trainers && user.trainers.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
               {user.trainers.map((trainer, index) => (
-                <div key={index} className="border rounded p-3">
+                <div key={index} className="border border-gray-700 rounded p-3">
                   <p className="font-medium">Name: {trainer.trainer_name}</p>
-                  <p className="text-gray-600">Specialization: {trainer.specialization}</p>
+                  <p className="text-gray-400">Specialization: {trainer.specialization}</p>
                 </div>
               ))}
             </div>
@@ -114,11 +114,11 @@ const UserModal: React.FC<UserModalProps> = ({ user, onClose }) => {
           {user.mealplans && user.mealplans.length > 0 ? (
             <div className="grid grid-cols-1 gap-4">
               {user.mealplans.map((plan, index) => (
-                <div key={index} className="border rounded p-3">
+                <div key={index} className="border border-gray-700 rounded p-3">
                   <p className="font-medium">{plan.plan_name}</p>
-                  <p className="text-gray-600">Calories per day: {plan.calories_per_day}</p>
-                  <p className="text-gray-600">Duration: {plan.duration} days</p>
-                  <p className="text-gray-600">Created by: {plan.trainer_name}</p>
+                  <p className="text-gray-400">Calories per day: {plan.calories_per_day}</p>
+                  <p className="text-gray-400">Duration: {plan.duration} days</p>
+                  <p className="text-gray-400">Created by: {plan.trainer_name}</p>
                 </div>
               ))}
             </div>
@@ -296,7 +296,7 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ trainer, onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
+      <div className="bg-[#121212] text-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold">{trainer.name}'s Details</h2>
           <button
@@ -317,9 +317,9 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ trainer, onClose }) => {
               {associatedUsers.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {associatedUsers.map((user) => (
-                    <div key={user.user_id} className="border rounded p-3">
+                    <div key={user.user_id} className="border border-gray-700 rounded p-3">
                       <p className="font-medium">{user.name}</p>
-                      <p className="text-gray-600">Email: {user.email}</p>
+                      <p className="text-gray-400">Email: {user.email}</p>
                     </div>
                   ))}
                 </div>
@@ -334,11 +334,11 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ trainer, onClose }) => {
               {mealPlans.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {mealPlans.map((plan, index) => (
-                    <div key={index} className="border rounded p-3">
+                    <div key={index} className="border border-gray-700 rounded p-3">
                       <p className="font-medium">{plan.plan_name}</p>
-                      <p className="text-gray-600">Calories per day: {plan.calories_per_day}</p>
-                      <p className="text-gray-600">Duration: {plan.duration} days</p>
-                      <p className="text-gray-600">Assigned to: {plan.user_name}</p>
+                      <p className="text-gray-400">Calories per day: {plan.calories_per_day}</p>
+                      <p className="text-gray-400">Duration: {plan.duration} days</p>
+                      <p className="text-gray-400">Assigned to: {plan.user_name}</p>
                     </div>
                   ))}
                 </div>
@@ -353,10 +353,10 @@ const TrainerModal: React.FC<TrainerModalProps> = ({ trainer, onClose }) => {
               {workoutPlans.length > 0 ? (
                 <div className="grid grid-cols-1 gap-4">
                   {workoutPlans.map((plan, index) => (
-                    <div key={index} className="border rounded p-3">
+                    <div key={index} className="border border-gray-700 rounded p-3">
                       <p className="font-medium">{plan.plan_name}</p>
-                      <p className="text-gray-600">Description: {plan.description}</p>
-                      <p className="text-gray-600">Assigned to: {plan.user_name}</p>
+                      <p className="text-gray-400">Description: {plan.description}</p>
+                      <p className="text-gray-400">Assigned to: {plan.user_name}</p>
                     </div>
                   ))}
                 </div>
@@ -642,54 +642,36 @@ export default function AdminDashboard() {
 
   const fetchTrainers = async () => {
     try {
-      // Get base trainer data
-      const { data: trainerData, error: trainerError } = await supabase
-        .from('trainerandnutritionist')
-        .select('trainer_id, name, specialization, certification, experience, rating');
+      const { data, error } = await supabase
+        .from("trainerandnutritionist")
+        .select("trainer_id, name, specialization, certification, experience, rating");
 
-      if (trainerError) throw trainerError;
+      if (error) throw error;
 
-      // Get earnings data
-      const { data: earningsData, error: earningsError } = await supabase
-        .from('payment')
-        .select('trainer_id, amount')
-        .eq('status', 'Completed');
+      // Calculate earnings and bookings for each trainer
+      const trainersWithStats = await Promise.all(
+        data.map(async (trainer) => {
+          const { data: bookings } = await supabase
+            .from("bookings")
+            .select("amount")
+            .eq("trainer_id", trainer.trainer_id);
 
-      if (earningsError) throw earningsError;
+          const totalEarnings = bookings?.reduce((sum, booking) => sum + booking.amount, 0) || 0;
+          const totalBookings = bookings?.length || 0;
 
-      // Get bookings data
-      const { data: bookingsData, error: bookingsError } = await supabase
-        .from('appointment')
-        .select('trainer_id');
+          return {
+            ...trainer,
+            earnings: totalEarnings,
+            bookings: totalBookings,
+          };
+        })
+      );
 
-      if (bookingsError) throw bookingsError;
-
-      // Process and combine the data
-      const processedTrainers = trainerData.map((trainer: any) => {
-        const earnings = earningsData
-          ?.filter(p => p.trainer_id === trainer.trainer_id)
-          .reduce((sum, p) => sum + p.amount, 0) || 0;
-
-        const bookings = bookingsData
-          ?.filter(a => a.trainer_id === trainer.trainer_id)
-          .length || 0;
-
-        return {
-          trainer_id: trainer.trainer_id,
-          name: trainer.name,
-          trainer_name: trainer.name,
-          specialization: trainer.specialization,
-          certification: trainer.certification,
-          experience: trainer.experience,
-          rating: trainer.rating,
-          earnings,
-          bookings
-        };
-      });
-
-      setTrainers(processedTrainers);
-    } catch (err: any) {
-      throw err;
+      setTrainers(trainersWithStats);
+      setLoading(false);
+    } catch (error: any) {
+      setError(error.message);
+      setLoading(false);
     }
   };
 
@@ -724,16 +706,16 @@ export default function AdminDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-white">Loading...</div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-red-500 text-xl">Error: {error}</div>
+      <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="text-red-400">{error}</div>
       </div>
     );
   }
@@ -801,10 +783,10 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
+    <div className="min-h-screen bg-[#121212] text-white p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <button
             onClick={() => {
               sessionStorage.clear();
@@ -818,14 +800,14 @@ export default function AdminDashboard() {
         
         {/* Tabs */}
         <div className="mb-6">
-          <div className="border-b border-gray-200">
+          <div className="border-b border-gray-700">
             <nav className="-mb-px flex space-x-8">
               <button
                 onClick={() => setActiveTab('users')}
                 className={`${
                   activeTab === 'users'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-indigo-500 text-indigo-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
                 Users
@@ -834,8 +816,8 @@ export default function AdminDashboard() {
                 onClick={() => setActiveTab('trainers')}
                 className={`${
                   activeTab === 'trainers'
-                    ? 'border-indigo-500 text-indigo-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-indigo-500 text-indigo-400'
+                    : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-300'
                 } whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}
               >
                 Trainers
@@ -845,39 +827,39 @@ export default function AdminDashboard() {
         </div>
 
         {activeTab === 'users' ? (
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
+          <div className="bg-[#1E1E1E] shadow-md rounded-lg overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-700">
+                <thead className="bg-gray-800">
                   <tr>
                     {Object.keys(SORTABLE_COLUMNS).map(key => renderColumnHeader(key))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-[#1E1E1E] divide-y divide-gray-700">
                   {users.map((user) => (
-                    <tr key={user.user_id}>
+                    <tr key={user.user_id} className="hover:bg-gray-800">
                       <td 
-                        className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                        className="px-6 py-4 whitespace-nowrap text-sm text-blue-400 hover:text-blue-600 cursor-pointer"
                         onClick={() => setSelectedUser(user)}
                       >
                         {user.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.email}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.age || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.weight || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.height || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.goal || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.dietary_preferences || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.age || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.weight || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.height || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.goal || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.dietary_preferences || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                         {user.avg_calories_burned ? Math.round(user.avg_calories_burned) : '-'}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.mood || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.stress_level || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{user.sleep_quality || '-'}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.mood || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.stress_level || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{user.sleep_quality || '-'}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                         {new Date(user.created_at).toLocaleString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                         {user.mental_health_created_at ? new Date(user.mental_health_created_at).toLocaleString() : '-'}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${
@@ -904,39 +886,39 @@ export default function AdminDashboard() {
         ) : (
           <>
             {/* All Trainers Table */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden mb-6">
+            <div className="bg-[#1E1E1E] shadow-md rounded-lg overflow-hidden mb-6">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-800">
                     <tr>
                       {Object.keys(TRAINER_SORTABLE_COLUMNS).map(key => renderTrainerColumnHeader(key))}
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-[#1E1E1E] divide-y divide-gray-700">
                     {trainers.map((trainer) => (
-                      <tr key={trainer.trainer_id}>
+                      <tr key={trainer.trainer_id} className="hover:bg-gray-800">
                         <td 
-                          className="px-6 py-4 whitespace-nowrap text-sm text-blue-600 hover:text-blue-800 cursor-pointer"
+                          className="px-6 py-4 whitespace-nowrap text-sm text-blue-400 hover:text-blue-600 cursor-pointer"
                           onClick={() => setSelectedTrainer(trainer)}
                         >
                           {trainer.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.specialization}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.certification}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.experience}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.rating}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           ${trainer.earnings.toFixed(2)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.bookings}
                         </td>
                       </tr>
@@ -947,35 +929,35 @@ export default function AdminDashboard() {
             </div>
 
             {/* Most Experienced Trainers Section */}
-            <div className="bg-white shadow-md rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Most Experienced Trainers by Specialization</h2>
+            <div className="bg-[#1E1E1E] shadow-md rounded-lg overflow-hidden">
+              <div className="p-4 border-b border-gray-700">
+                <h2 className="text-lg font-semibold text-gray-300">Most Experienced Trainers by Specialization</h2>
               </div>
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-gray-700">
+                  <thead className="bg-gray-800">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Specialization
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Trainer Name
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase tracking-wider">
                         Experience (years)
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="bg-[#1E1E1E] divide-y divide-gray-700">
                     {mostExperiencedTrainers.map((trainer, index) => (
                       <tr key={index}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.specialization}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                           {trainer.experience}
                         </td>
                       </tr>
@@ -1003,4 +985,4 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
-} 
+}
