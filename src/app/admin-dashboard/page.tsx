@@ -422,6 +422,35 @@ export default function AdminDashboard() {
           const bTime = new Date(bValue).getTime();
           comparison = aTime > bTime ? 1 : aTime < bTime ? -1 : 0;
         } 
+        // Compare payment status
+        else if (attribute === 'payment_due_date') {
+          const aStatus = a.payment_status || 'Standard Tier';
+          const bStatus = b.payment_status || 'Standard Tier';
+          
+          // Define priority order for payment statuses
+          const statusPriority: Record<string, number> = {
+            'Standard Tier': 3,
+            'Completed': 2
+          };
+          
+          // If both are special statuses, compare their priority
+          if (aStatus in statusPriority && bStatus in statusPriority) {
+            comparison = statusPriority[aStatus] - statusPriority[bStatus];
+          }
+          // If one is a date and one is a status, dates come first
+          else if (aStatus in statusPriority) {
+            comparison = -1;  // status comes after date
+          }
+          else if (bStatus in statusPriority) {
+            comparison = 1; // date comes before status
+          }
+          // If both are dates, compare them directly (newer dates first)
+          else {
+            const aDate = new Date(aStatus).getTime();
+            const bDate = new Date(bStatus).getTime();
+            comparison = aDate - bDate; // newer dates will have higher values
+          }
+        }
         // Compare numbers
         else if (typeof aValue === 'number' && typeof bValue === 'number') {
           comparison = aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
@@ -554,8 +583,7 @@ export default function AdminDashboard() {
       // Get payment data for each user
       const { data: paymentData, error: paymentError } = await supabase
         .from('payment')
-        .select('user_id, status, created_at')
-        .neq('status', 'Completed')
+        .select('user_id, trainer_id, amount, payment_method, status, created_at')
         .order('created_at', { ascending: false });
 
       if (paymentError) throw paymentError;
@@ -595,9 +623,16 @@ export default function AdminDashboard() {
         const latestMentalHealth = mentalHealthData?.find(m => m.user_id === user.user_id);
 
         // Get payment status
-        const pendingPayment = paymentData?.find(p => p.user_id === user.user_id);
-        const payment_status = pendingPayment ? 'Due' : 'Completed';
-        const payment_due_date = pendingPayment ? pendingPayment.created_at : null;
+        const userPayments = paymentData?.filter(p => p.user_id === user.user_id);
+        const latestPayment = userPayments?.[0];
+        const payment_status = !latestPayment 
+          ? 'Standard Tier'
+          : latestPayment.status === 'Completed' 
+            ? 'Completed'
+            : new Date(latestPayment.created_at).toLocaleString();
+        const payment_due_date = latestPayment && latestPayment.status !== 'completed' 
+          ? latestPayment.created_at 
+          : null;
 
         // Get user's meal plans
         const userMealPlans = mealPlanData
@@ -864,14 +899,13 @@ export default function AdminDashboard() {
                         {user.mental_health_created_at ? new Date(user.mental_health_created_at).toLocaleString() : '-'}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${
-                        user.payment_status === 'Completed' ? 'text-green-600' : 'text-red-600'
+                        user.payment_status === 'Standard Tier' 
+                          ? 'text-yellow-500'
+                          : user.payment_status === 'Completed'
+                            ? 'text-green-600'
+                            : 'text-red-600'
                       }`}>
-                        {user.payment_status === 'Completed' 
-                          ? 'Completed' 
-                          : user.payment_due_date 
-                            ? new Date(user.payment_due_date).toLocaleString()
-                            : '-'
-                      }
+                        {user.payment_status}
                       </td>
                       <td className={`px-6 py-4 whitespace-nowrap text-sm ${
                         user.status === 'Active' ? 'text-green-600' : 'text-red-600'

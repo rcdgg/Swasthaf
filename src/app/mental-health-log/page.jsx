@@ -1,12 +1,15 @@
 "use client";
 import { supabase } from '../../supabaseClient';
 import { useEffect, useState } from "react";
+import { useRouter } from 'next/navigation';
 // import './globals.css';  // or wherever your global CSS file is
 
 
 export default function MentalHealthLog() {
   const [previousLogs, setPreviousLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const router = useRouter();
   
   useEffect(() => {
     const butterfly = document.querySelector(".butterfly");
@@ -65,27 +68,33 @@ export default function MentalHealthLog() {
   }, []);
   
   const fetchPreviousLogs = async () => {
-    const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
-    const userId = userData.user_id;
-
-    if (!userId) {
-      console.log("No user ID found");
-      setLoading(false);
-      return;
-    }
+    setLoading(true);
+    setError(null);
 
     try {
+      const userData = JSON.parse(sessionStorage.getItem("userData") || "{}");
+      const userId = userData.user_id;
+
+      if (!userId) {
+        router.push('/login');
+        return;
+      }
+
       const { data, error } = await supabase
         .from("mentalhealthlog")
         .select("*")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false });
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        throw error;
+      }
+
       console.log("Fetched logs:", data);
       setPreviousLogs(data || []);
     } catch (err) {
       console.error("Error fetching previous logs:", err);
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -129,17 +138,6 @@ export default function MentalHealthLog() {
         <div className="dot" style={{ top: "80%", left: "120%" }}></div>
         <div className="dot" style={{ top: "130%", left: "24%" }}></div>
         <div className="dot" style={{ top: "55%", left: "66%" }}></div>
-
-        <div className="dot" style={{ top: "5%", left: "37%" }}></div>
-        <div className="dot" style={{ top: "10%", left: "54%" }}></div>
-        <div className="dot" style={{ top: "15%", left: "63%" }}></div>
-        <div className="dot" style={{ top: "20%", left: "72%" }}></div>
-        <div className="dot" style={{ top: "25%", left: "87%" }}></div>
-        <div className="dot" style={{ top: "30%", left: "79%" }}></div>
-        <div className="dot" style={{ top: "35%", left: "98%" }}></div>
-        <div className="dot" style={{ top: "40%", left: "120%" }}></div>
-        <div className="dot" style={{ top: "45%", left: "24%" }}></div>
-        <div className="dot" style={{ top: "50%", left: "66%" }}></div>
 
         <div className="dot" style={{ top: "-10%", left: "37%" }}></div>
         <div className="dot" style={{ top: "-150%", left: "54%" }}></div>
@@ -233,6 +231,18 @@ export default function MentalHealthLog() {
           }}
           
         >
+          {error && (
+            <div style={{
+              backgroundColor: "#fee2e2",
+              color: "#ef4444",
+              padding: "0.75rem",
+              marginBottom: "1rem",
+              borderRadius: "0.5rem",
+              fontSize: "1rem"
+            }}>
+              {error}
+            </div>
+          )}
           
           <div className="twinkling-stars">
         {/* Create multiple dots for twinkling effect */}

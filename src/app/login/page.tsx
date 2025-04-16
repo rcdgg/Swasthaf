@@ -8,7 +8,7 @@ import { createHash } from 'crypto';
 type UserType = 'user' | 'trainer' | 'admin';
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [userType, setUserType] = useState<UserType>('user');
   const [error, setError] = useState('');
@@ -17,7 +17,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
+    console.log(userType);
     try {
       if (userType === 'admin') {
         // Admin login with just password
@@ -30,43 +30,46 @@ export default function LoginPage() {
         }
       }
 
-      if ((userType as UserType) === 'trainer') {
-        // Hardcoded trainer login logic
-        if (email === 'trainer@example.com' && password === 'trainer123') {
-          const hardcodedTrainerData = {
-            id: 1,
-            name: 'Hardcoded Trainer',
-            email: 'trainer.example.com',
-          };
+      if (userType === 'trainer') {
+        // Check if trainer exists in trainerandnutritionist table
+        const { data: trainerData, error: trainerError } = await supabase
+          .from("trainerandnutritionist")
+          .select("*")
+          .eq("name", name)
+          .single();
 
-          // Store trainer data in session storage
-          sessionStorage.setItem("trainerData", JSON.stringify(hardcodedTrainerData));
-          sessionStorage.setItem("userType", "trainer");
-
-          // Redirect to trainer dashboard
-          router.push("/trainer");
-          return;
-        } else {
-          throw new Error('Invalid email or password for trainer');
+        if (trainerError || !trainerData) {
+          throw new Error('Invalid trainer name');
         }
+
+        // For trainer, password should match the name
+        if (password !== name) {
+          throw new Error('Invalid password');
+        }
+
+        // Store trainer data in session storage
+        sessionStorage.setItem("trainerData", JSON.stringify({
+          id: trainerData.trainer_id,
+          name: trainerData.name,
+          specialization: trainerData.specialization
+        }));
+        sessionStorage.setItem("userType", "trainer");
+
+        // Redirect to trainer dashboard
+        router.push("/trainer");
+        return;
       }
 
-      // Hash password for user/trainer login
+      // Regular user login
+      const normalizedEmail = name.toLowerCase();
       const hashedPassword = createHash('md5').update(password).digest('hex');
-      const normalizedEmail = email.toLowerCase();
-      console.log('Email:', normalizedEmail);
-      console.log('Hashed Password:', hashedPassword);
 
-      // Regular user/trainer login
       const { data: userData, error: userError } = await supabase
         .from("User")
         .select("*")
         .eq("email", normalizedEmail)
-        .eq("password_hash", hashedPassword) // Compare with 'password_hash' attribute
+        .eq("password_hash", hashedPassword)
         .single();
-
-      console.log('Supabase Error:', userError);
-      console.log('Supabase Data:', userData);
 
       if (userError) {
         throw new Error('Invalid email or password');
@@ -75,19 +78,14 @@ export default function LoginPage() {
       // Store user data in session storage
       sessionStorage.setItem("userData", JSON.stringify(userData));
       sessionStorage.setItem("userType", userType);
-
-      // Redirect based on user type
-      if (userType === 'trainer') {
-        router.push("/trainer-dashboard");
-      } else {
-        router.push("/user-dashboard");
-      }
+      router.push("/user-dashboard");
     } catch (error: any) {
       setError(error.message);
     }
   };
 
   const isAdminLogin = userType === 'admin';
+  const isTrainerLogin = userType === 'trainer';
 
   return (
     <div className="min-h-screen bg-[#121212] flex items-center justify-center p-4">
@@ -115,16 +113,16 @@ export default function LoginPage() {
           </div>
           {!isAdminLogin && (
             <div className="space-y-2">
-              <label htmlFor="email" className="block text-gray-300 text-base">
-                Email address
+              <label htmlFor="name" className="block text-gray-300 text-base">
+                {isTrainerLogin ? 'Trainer Name' : 'Email address'}
               </label>
               <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
                 className="w-full p-3 bg-[#1E1E1E] text-white rounded-lg border border-gray-600 focus:border-gray-300 focus:ring-1 focus:ring-gray-300 placeholder-gray-500"
-                placeholder="Email address"
+                placeholder={isTrainerLogin ? 'Enter your trainer name' : 'Email address'}
                 required={!isAdminLogin}
               />
             </div>

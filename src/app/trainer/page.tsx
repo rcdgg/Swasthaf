@@ -3,8 +3,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
 
+interface User {
+  name: string;
+  email: string;
+}
+
+interface ClientMapping {
+  user_id: string;
+  user: User;
+}
+
 interface Client {
-  id: number;
+  id: string;
   name: string;
   email: string;
 }
@@ -14,12 +24,14 @@ interface MealPlan {
   name: string;
   calories: number;
   duration: number;
+  user_id: string;
 }
 
 interface WorkoutPlan {
   id: number;
   name: string;
   description: string;
+  user_id: string;
 }
 
 export default function TrainerPage() {
@@ -27,53 +39,45 @@ export default function TrainerPage() {
   const [mealPlans, setMealPlans] = useState<MealPlan[]>([]);
   const [workoutPlans, setWorkoutPlans] = useState<WorkoutPlan[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedClientId, setSelectedClientId] = useState<string>("");
 
   useEffect(() => {
     const fetchTrainerData = async () => {
-      setLoading(true);
       try {
         const trainerData = JSON.parse(sessionStorage.getItem("trainerData") || "{}");
-        const trainerId = trainerData.id;
+        if (!trainerData.id) {
+          console.error("No trainer ID found in session");
+          return;
+        }
 
-        // Fetch clients
-        const { data: clientsData } = await supabase
+        // Fetch clients using trainerusermap table
+        const { data: clientMappings, error: clientError } = await supabase
           .from("trainerusermap")
-          .select("user_id, User(name, email)")
-          .eq("trainer_id", trainerId);
+          .select(`
+            user_id,
+            user:user_id (
+              name,
+              email
+            )
+          `)
+          .eq("trainer_id", trainerData.id);
 
-        setClients(clientsData?.map((item: any) => ({
-          id: item.user_id,
-          name: item.User.name,
-          email: item.User.email,
-        })) || []);
+        if (clientError) {
+          console.error("Error fetching clients:", clientError);
+          return;
+        }
 
-        // Fetch meal plans
-        const { data: mealPlansData } = await supabase
-          .from("mealplan")
-          .select("id, plan_name, calories_per_day, duration")
-          .eq("trainer_id", trainerId);
+        // Transform the data to match the expected format
+        const clients = (clientMappings as unknown as ClientMapping[])?.map(mapping => ({
+          id: mapping.user_id,
+          name: mapping.user.name,
+          email: mapping.user.email
+        })) || [];
 
-        setMealPlans(mealPlansData?.map((item: any) => ({
-          id: item.id,
-          name: item.plan_name,
-          calories: item.calories_per_day,
-          duration: item.duration,
-        })) || []);
-
-        // Fetch workout plans
-        const { data: workoutPlansData } = await supabase
-          .from("workoutplan")
-          .select("id, plan_name, description")
-          .eq("trainer_id", trainerId);
-
-        setWorkoutPlans(workoutPlansData?.map((item: any) => ({
-          id: item.id,
-          name: item.plan_name,
-          description: item.description,
-        })) || []);
+        setClients(clients);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching trainer data:", error);
-      } finally {
         setLoading(false);
       }
     };
@@ -130,31 +134,67 @@ export default function TrainerPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const planName = formData.get("planName");
-            const calories = parseInt(formData.get("calories"), 10);
-            const duration = parseInt(formData.get("duration"), 10);
+            const formData = new FormData(e.target as HTMLFormElement);
+            const planName = formData.get("planName")?.toString() || "";
+            const calories = parseInt(formData.get("calories")?.toString() || "0", 10);
+            const duration = parseInt(formData.get("duration")?.toString() || "0", 10);
+            const clientId = formData.get("clientId")?.toString() || "";
+
+            if (!clientId) {
+              alert("Please select a client");
+              return;
+            }
 
             try {
               const trainerData = JSON.parse(sessionStorage.getItem("trainerData") || "{}");
               const trainerId = trainerData.id;
 
-              const { error } = await supabase.from("mealplan").insert({
+              console.log("Creating meal plan with data:", {
                 plan_name: planName,
                 calories_per_day: calories,
                 duration,
                 trainer_id: trainerId,
+                user_id: clientId
               });
 
-              if (error) throw error;
+              const { error } = await supabase.from("mealplan").insert([{
+                plan_name: planName,
+                calories_per_day: calories,
+                duration,
+                trainer_id: trainerId,
+                user_id: clientId
+              }]);
+
+              if (error) {
+                console.error("Detailed error:", error);
+                throw error;
+              }
+              
               alert("Meal plan created successfully!");
+              // Reset form
+              (e.target as HTMLFormElement).reset();
+              setSelectedClientId("");
             } catch (error) {
               console.error("Error creating meal plan:", error);
-              alert("Failed to create meal plan.");
+              alert(`Failed to create meal plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
           }}
           className="space-y-4 bg-gray-800 p-6 rounded-lg shadow-lg"
         >
+          <select
+            name="clientId"
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
+            className="w-full p-3 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-blue-400"
+            required
+          >
+            <option value="">Select a client</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name} ({client.email})
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             name="planName"
@@ -208,29 +248,64 @@ export default function TrainerPage() {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const planName = formData.get("planName");
-            const description = formData.get("description");
+            const formData = new FormData(e.target as HTMLFormElement);
+            const planName = formData.get("planName")?.toString() || "";
+            const description = formData.get("description")?.toString() || "";
+            const clientId = formData.get("clientId")?.toString() || "";
+
+            if (!clientId) {
+              alert("Please select a client");
+              return;
+            }
 
             try {
               const trainerData = JSON.parse(sessionStorage.getItem("trainerData") || "{}");
               const trainerId = trainerData.id;
 
-              const { error } = await supabase.from("workoutplan").insert({
+              console.log("Creating workout plan with data:", {
                 plan_name: planName,
                 description,
                 trainer_id: trainerId,
+                user_id: clientId
               });
 
-              if (error) throw error;
+              const { error } = await supabase.from("workoutplan").insert([{
+                plan_name: planName,
+                description,
+                trainer_id: trainerId,
+                user_id: clientId
+              }]);
+
+              if (error) {
+                console.error("Detailed error:", error);
+                throw error;
+              }
+
               alert("Workout plan created successfully!");
+              // Reset form
+              (e.target as HTMLFormElement).reset();
+              setSelectedClientId("");
             } catch (error) {
               console.error("Error creating workout plan:", error);
-              alert("Failed to create workout plan.");
+              alert(`Failed to create workout plan: ${error instanceof Error ? error.message : 'Unknown error'}`);
             }
           }}
           className="space-y-4 bg-gray-800 p-6 rounded-lg shadow-lg"
         >
+          <select
+            name="clientId"
+            value={selectedClientId}
+            onChange={(e) => setSelectedClientId(e.target.value)}
+            className="w-full p-3 bg-gray-700 text-white rounded-lg focus:ring-2 focus:ring-purple-400"
+            required
+          >
+            <option value="">Select a client</option>
+            {clients.map((client) => (
+              <option key={client.id} value={client.id}>
+                {client.name} ({client.email})
+              </option>
+            ))}
+          </select>
           <input
             type="text"
             name="planName"

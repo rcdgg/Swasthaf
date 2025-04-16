@@ -4,6 +4,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import { Pie } from "react-chartjs-2";
+import {
+  Chart as ChartJS,
+  ArcElement,
+  Tooltip,
+  Legend,
+} from "chart.js";
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 interface FoodItem {
   food_id: number;
@@ -299,6 +308,49 @@ export default function FoodPage() {
     };
   }
 
+  const macrosChartData = {
+    labels: ['Protein', 'Carbs', 'Fats'],
+    datasets: [
+      {
+        data: [
+          calculateTotalMacros(selectedFoods).protein,
+          calculateTotalMacros(selectedFoods).carbs,
+          calculateTotalMacros(selectedFoods).fats,
+        ],
+        backgroundColor: [
+          'rgba(255, 99, 132, 0.8)',
+          'rgba(54, 162, 235, 0.8)',
+          'rgba(255, 206, 86, 0.8)',
+        ],
+        borderColor: [
+          'rgba(255, 99, 132, 1)',
+          'rgba(54, 162, 235, 1)',
+          'rgba(255, 206, 86, 1)',
+        ],
+        borderWidth: 1,
+      },
+    ],
+  };
+
+  const chartOptions = {
+    plugins: {
+      legend: {
+        labels: {
+          color: 'white',
+        },
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${value.toFixed(1)}g`;
+          }
+        }
+      }
+    },
+  };
+
   return (
     <div className="min-h-screen bg-[#121212] p-8">
       <div className="mb-8">
@@ -414,25 +466,26 @@ export default function FoodPage() {
                 })}
               </div>
 
-              {/* Total Macros Summary */}
-              <div className="bg-[#2D2D2D] p-4 rounded-lg border border-[#3D3D3D]">
-                <h3 className="text-xl font-semibold text-white mb-4">Total Daily Macros</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-[#363636] p-4 rounded-lg">
-                    <p className="text-gray-300 mb-1">Total Calories</p>
-                    <p className="text-2xl font-bold text-blue-400">{calculateTotalMacros().calories} kcal</p>
+              {/* Display total macros and pie chart */}
+              <div className="mb-8 p-6 bg-gray-800 rounded-lg shadow-lg">
+                <h2 className="text-2xl font-semibold mb-4 text-white">Total Macros</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+                  <div className="space-y-2">
+                    <p className="text-white">
+                      Calories: {calculateTotalMacros(selectedFoods).calories.toFixed(1)} kcal
+                    </p>
+                    <p className="text-white">
+                      Protein: {calculateTotalMacros(selectedFoods).protein.toFixed(1)}g
+                    </p>
+                    <p className="text-white">
+                      Carbs: {calculateTotalMacros(selectedFoods).carbs.toFixed(1)}g
+                    </p>
+                    <p className="text-white">
+                      Fats: {calculateTotalMacros(selectedFoods).fats.toFixed(1)}g
+                    </p>
                   </div>
-                  <div className="bg-[#363636] p-4 rounded-lg">
-                    <p className="text-gray-300 mb-1">Total Protein</p>
-                    <p className="text-2xl font-bold text-green-400">{calculateTotalMacros().protein}g</p>
-                  </div>
-                  <div className="bg-[#363636] p-4 rounded-lg">
-                    <p className="text-gray-300 mb-1">Total Carbs</p>
-                    <p className="text-2xl font-bold text-yellow-400">{calculateTotalMacros().carbs}g</p>
-                  </div>
-                  <div className="bg-[#363636] p-4 rounded-lg">
-                    <p className="text-gray-300 mb-1">Total Fats</p>
-                    <p className="text-2xl font-bold text-red-400">{calculateTotalMacros().fats}g</p>
+                  <div className="w-full max-w-xs mx-auto">
+                    <Pie data={macrosChartData} options={chartOptions} />
                   </div>
                 </div>
               </div>

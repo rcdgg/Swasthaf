@@ -33,114 +33,53 @@ export default function LogWorkoutPage() {
   const [quantity, setQuantity] = useState<number>(1);
   const [loggedExercises, setLoggedExercises] = useState<LoggedExercise[]>([]);
   const [showAddExercise, setShowAddExercise] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [userId, setUserId] = useState<number | null>(null);
+  const [saveStatus, setSaveStatus] = useState<string>('');
   const router = useRouter();
 
   useEffect(() => {
-    const fetchExercises = async () => {
-      const { data, error } = await supabase.from("exercisedatabase").select("*");
-      if (error) {
-        console.error("Error fetching exercises:", error);
-      } else {
-        setExercises(data);
-      }
-    };
-
-    const fetchLoggedExercises = async () => {
-      const userData = sessionStorage.getItem("userData");
-      if (!userData) return;
-      const { user_id } = JSON.parse(userData);
-      const today = new Date().toISOString().split("T")[0];
-
-      const { data, error } = await supabase
-        .from("user_daily_workouts")
-        .select(`exercise_id, quantity, exercisedatabase(name, calories_burned_per_minute, muscle_group)`)
-        .eq("user_id", user_id)
-        .eq("log_date", today);
-
-      if (!error && data) {
-        const logs = data.map((entry: any) => ({
-          exercise_id: entry.exercise_id,
-          name: entry.exercisedatabase.name,
-          quantity: entry.quantity,
-          muscle_group: entry.exercisedatabase.muscle_group,
-          calories: entry.quantity * entry.exercisedatabase.calories_burned_per_minute,
-        }));
-        setLoggedExercises(logs);
-      }
-    };
-
-    fetchExercises();
-    fetchLoggedExercises();
+    checkUser();
   }, []);
 
-  const handleAddExercise = (exercise: Exercise) => {
-    const calories = exercise.calories_burned_per_minute * quantity;
-    setLoggedExercises((prev) => [
-      ...prev,
-      {
-        exercise_id: exercise.exercise_id,
-        name: exercise.name,
-        quantity,
-        calories,
-        muscle_group: exercise.muscle_group,
-      },
-    ]);
-  };
-
-  const handleRemoveExercise = (index: number) => {
-    setLoggedExercises((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleSubmit = async () => {
-    const userData = sessionStorage.getItem("userData");
-    if (!userData) return;
-    const { user_id } = JSON.parse(userData);
-    const today = new Date().toISOString().split("T")[0];
-
-    let totalCaloriesBurned = 0;
-
-    for (const log of loggedExercises) {
-      totalCaloriesBurned += log.calories;
-      await supabase.from("user_daily_workouts").insert({
-        user_id,
-        exercise_id: log.exercise_id,
-        quantity: log.quantity,
-        log_date: today,
-      });
+  useEffect(() => {
+    if (userId) {
+      fetchExercises();
+      fetchLoggedExercises();
     }
+  }, [userId]);
 
-    const { data: existing } = await supabase
-      .from("progresslog")
-      .select("*")
-      .eq("user_id", user_id)
-      .eq("log_date", today)
-      .single();
+  const checkUser = async () => {
+    try {
+      const userData = JSON.parse(sessionStorage.getItem('userData') || '{}');
+      if (!userData.user_id) {
+        router.push('/login');
+        return;
+      }
+      setUserId(userData.user_id);
+    } catch (error) {
+      console.error('Error checking user:', error);
+      router.push('/login');
+    }
+  };
 
-    if (existing) {
-      await supabase
-        .from("progresslog")
-        .update({
-          calories_burned: totalCaloriesBurned,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("progress_id", existing.progress_id);
+  const fetchExercises = async () => {
+    const { data, error } = await supabase.from("exercisedatabase").select("*");
+    if (error) {
+      console.error("Error fetching exercises:", error);
     } else {
-      await supabase.from("progresslog").insert({
-        user_id,
-        log_date: today,
-        calories_burned: totalCaloriesBurned,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      setExercises(data);
     }
+  };
 
-    alert("Workout logged successfully!");
-    setShowAddExercise(false);
+  const fetchLoggedExercises = async () => {
+    if (!userId) return;
+    const today = new Date().toISOString().split("T")[0];
 
     const { data, error } = await supabase
       .from("user_daily_workouts")
       .select(`exercise_id, quantity, exercisedatabase(name, calories_burned_per_minute, muscle_group)`)
-      .eq("user_id", user_id)
+      .eq("user_id", userId)
       .eq("log_date", today);
 
     if (!error && data) {
@@ -155,8 +94,131 @@ export default function LogWorkoutPage() {
     }
   };
 
+  const saveWorkouts = async (updatedExercises: LoggedExercise[]) => {
+    if (!userId) return;
+    
+    try {
+      setSaveStatus('Saving...');
+      const today = new Date().toISOString().split("T")[0];
+
+      // First, delete all existing workouts for today
+      await supabase
+        .from("user_daily_workouts")
+        .delete()
+        .eq("user_id", userId)
+        .eq("log_date", today);
+
+      if (updatedExercises.length === 0) {
+        setSaveStatus('Cleared workout list');
+        setTimeout(() => setSaveStatus(''), 2000);
+        return;
+      }
+
+      // Insert new workouts
+      const workoutsToInsert = updatedExercises.map(exercise => ({
+        user_id: userId,
+        exercise_id: exercise.exercise_id,
+        quantity: exercise.quantity,
+        log_date: today
+      }));
+
+      const { error } = await supabase
+        .from("user_daily_workouts")
+        .insert(workoutsToInsert);
+
+      if (error) throw error;
+
+      // Update progress log with total calories
+      const totalCaloriesBurned = updatedExercises.reduce((sum, ex) => sum + ex.calories, 0);
+
+      const { data: existing } = await supabase
+        .from("progresslog")
+        .select("*")
+        .eq("user_id", userId)
+        .eq("log_date", today)
+        .single();
+
+      if (existing) {
+        await supabase
+          .from("progresslog")
+          .update({
+            calories_burned: totalCaloriesBurned,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("progress_id", existing.progress_id);
+      }
+
+      setSaveStatus('Saved!');
+      setTimeout(() => setSaveStatus(''), 2000);
+    } catch (error) {
+      console.error('Error saving workouts:', error);
+      setSaveStatus('Error saving');
+      setTimeout(() => setSaveStatus(''), 3000);
+    }
+  };
+
+  const handleAddExercise = (exercise: Exercise) => {
+    const calories = exercise.calories_burned_per_minute * quantity;
+    const newExercises = [
+      ...loggedExercises,
+      {
+        exercise_id: exercise.exercise_id,
+        name: exercise.name,
+        quantity,
+        calories,
+        muscle_group: exercise.muscle_group,
+      }
+    ];
+    setLoggedExercises(newExercises);
+    setQuantity(1);
+    saveWorkouts(newExercises);
+  };
+
+  const handleRemoveExercise = (exerciseId: number) => {
+    const newExercises = loggedExercises.filter(ex => ex.exercise_id !== exerciseId);
+    setLoggedExercises(newExercises);
+    saveWorkouts(newExercises);
+  };
+
+  const handleQuantityChange = (exerciseId: number, newQuantity: number) => {
+    if (newQuantity < 1) return;
+    
+    const newExercises = loggedExercises.map(exercise => {
+      if (exercise.exercise_id === exerciseId) {
+        const exercise_data = exercises.find(e => e.exercise_id === exerciseId);
+        return {
+          ...exercise,
+          quantity: newQuantity,
+          calories: newQuantity * (exercise_data?.calories_burned_per_minute || 0),
+        };
+      }
+      return exercise;
+    });
+    
+    setLoggedExercises(newExercises);
+    saveWorkouts(newExercises);
+  };
+
+  const filteredExercises = exercises.filter(exercise =>
+    exercise.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    exercise.muscle_group.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const muscleGroupColors = {
+    'Chest': '#f87171',
+    'Back': '#facc15',
+    'Legs': '#34d399',
+    'Arms': '#60a5fa',
+    'Shoulders': '#a78bfa',
+    'Core': '#fb923c',
+    'Full Body': '#e879f9',
+    'Cardio': '#2dd4bf',
+    'Other': '#94a3b8'
+  };
+
   const caloriesByGroup = loggedExercises.reduce((acc, ex) => {
-    acc[ex.muscle_group] = (acc[ex.muscle_group] || 0) + ex.calories;
+    const group = ex.muscle_group || 'Other';
+    acc[group] = (acc[group] || 0) + ex.calories;
     return acc;
   }, {} as Record<string, number>);
 
@@ -166,115 +228,171 @@ export default function LogWorkoutPage() {
       {
         label: "Calories Burned",
         data: Object.values(caloriesByGroup),
-        backgroundColor: [
-          "#f87171",
-          "#facc15",
-          "#34d399",
-          "#60a5fa",
-          "#a78bfa",
-          "#fb923c",
-        ],
+        backgroundColor: Object.keys(caloriesByGroup).map(group => muscleGroupColors[group as keyof typeof muscleGroupColors] || '#94a3b8'),
+        borderColor: Object.keys(caloriesByGroup).map(group => muscleGroupColors[group as keyof typeof muscleGroupColors] || '#64748b'),
         borderWidth: 1,
       },
     ],
   };
 
+  const chartOptions = {
+    plugins: {
+      legend: {
+        position: 'right' as const,
+        labels: {
+          color: 'white',
+          font: {
+            size: 12
+          },
+          padding: 20
+        }
+      },
+      tooltip: {
+        callbacks: {
+          label: function(context: any) {
+            const label = context.label || '';
+            const value = context.raw || 0;
+            return `${label}: ${value.toFixed(0)} calories`;
+          }
+        }
+      }
+    },
+    maintainAspectRatio: false,
+  };
+
   return (
     <div className="min-h-screen bg-zinc-900 text-white p-6">
-      <h1 className="text-3xl font-bold mb-6">Workout & Activity</h1>
-
-      {/* BACK BUTTON SECTION */}
-      <button
-        onClick={() => router.push("/workout")}
-        className="mb-4 bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-md"
-      >
-        ← Back to Workout Menu
-      </button>
-
-      {!showAddExercise && (
-        <>
-          {loggedExercises.length > 0 && (
-            <div className="bg-zinc-800 p-4 rounded-xl mb-6">
-              <h2 className="text-xl font-semibold mb-4">Your Exercise List</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                {loggedExercises.map((log, idx) => (
-                  <div key={idx} className="bg-zinc-700 p-4 rounded-md relative">
-                    <h3 className="text-lg font-bold">{log.name}</h3>
-                    <p>Quantity: {log.quantity}</p>
-                    <p>Total Calories: {log.calories} kcal</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {Object.keys(caloriesByGroup).length > 0 && (
-          <div className="flex flex-col md:flex-row gap-6 mb-6">
-              {/* Pie Chart Section */}
-              <div className="bg-zinc-800 p-4 rounded-xl w-full md:w-1/2">
-              <h2 className="text-xl font-semibold mb-4">Calories by Muscle Group</h2>
-              <div className="w-full max-w-xs mx-auto">
-                  <Pie data={pieData} />
-              </div>
-              </div>
-
-              {/* Total Calories Section */}
-              <div className="bg-zinc-800 p-4 rounded-xl w-full md:w-1/2 flex flex-col justify-center items-center">
-              <h2 className="text-xl font-semibold mb-4">Total Calories Burned Today</h2>
-              <p className="text-7xl font-bold text-green-400">
-                  {loggedExercises.reduce((sum, ex) => sum + ex.calories, 0)} kcal
-              </p>
-              </div>
-          </div>
-          )}
-
-          <button
-            onClick={() => setShowAddExercise(true)}
-            className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-2 rounded-md"
-          >
-            Add Exercise
-          </button>
-        </>
-      )}
-
-      {showAddExercise && (
-        <div className="bg-zinc-800 p-4 rounded-xl mb-6">
-          <h2 className="text-xl font-semibold mb-2">Select Exercise</h2>
-          <div className="mb-2">
-            <label className="block mb-1">Default Quantity</label>
-            <input
-              type="number"
-              min={1}
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              className="bg-zinc-700 text-white px-3 py-2 rounded-md w-24"
-            />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
-            {exercises.map((exercise, idx) => (
-              <div
-                key={exercise.exercise_id}
-                className="bg-zinc-700 p-4 rounded-md cursor-pointer hover:bg-zinc-600"
-                onClick={() => handleAddExercise(exercise)}
-              >
-                <h3 className="text-lg font-bold">{exercise.name}</h3>
-                <p>Calories/min: {exercise.calories_burned_per_minute}</p>
-                <p>Muscle Group: {exercise.muscle_group}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="flex gap-4 mt-6">
+      <div className="mb-8">
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">Workout & Activity</h1>
+          <div className="flex items-center gap-4">
+            {saveStatus && (
+              <span className={`text-sm ${
+                saveStatus === 'Error saving' 
+                  ? 'text-red-400' 
+                  : saveStatus === 'Saving...' 
+                    ? 'text-yellow-400'
+                    : 'text-green-400'
+              }`}>
+                {saveStatus}
+              </span>
+            )}
             <button
-              onClick={handleSubmit}
-              disabled={loggedExercises.length === 0}
-              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-md disabled:opacity-50"
+              onClick={() => setShowAddExercise(!showAddExercise)}
+              className="bg-[#3730a3] text-white px-6 py-2 rounded-md hover:bg-[#312e81] transition-colors"
             >
-              Submit Workout
+              {showAddExercise ? 'Hide Exercise List' : 'Add Exercise'}
             </button>
           </div>
         </div>
-      )}
+
+        {showAddExercise && (
+          <div className="bg-zinc-800 p-6 rounded-lg shadow-xl mb-6">
+            <input
+              type="text"
+              placeholder="Search exercises..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full p-3 bg-zinc-700 text-white border border-zinc-600 rounded-lg mb-4 focus:outline-none focus:border-gray-300"
+            />
+            <div className="mb-4">
+              <label className="block text-gray-300 mb-2">
+                Duration (minutes)
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(Number(e.target.value))}
+                className="w-24 p-3 bg-zinc-700 text-white border border-zinc-600 rounded-lg focus:outline-none focus:border-gray-300"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredExercises.map((exercise) => (
+                <div
+                  key={exercise.exercise_id}
+                  className="bg-zinc-700 p-4 rounded-lg hover:bg-zinc-600 cursor-pointer border border-zinc-600"
+                  onClick={() => handleAddExercise(exercise)}
+                >
+                  <h3 className="font-semibold text-white mb-2">{exercise.name}</h3>
+                  <div className="text-gray-300 space-y-1">
+                    <p>Muscle Group: {exercise.muscle_group}</p>
+                    <p>Calories/min: {exercise.calories_burned_per_minute}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="bg-zinc-800 p-6 rounded-lg shadow-xl">
+          <h2 className="text-2xl font-bold mb-4">Your Exercise List</h2>
+          {loggedExercises.length === 0 ? (
+            <p className="text-gray-400">No exercises added yet</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                {loggedExercises.map((exercise) => (
+                  <div
+                    key={exercise.exercise_id}
+                    className="bg-zinc-700 p-4 rounded-lg relative border border-zinc-600"
+                  >
+                    <button
+                      onClick={() => handleRemoveExercise(exercise.exercise_id)}
+                      className="absolute top-2 right-2 text-gray-400 hover:text-white text-xl"
+                    >
+                      ×
+                    </button>
+                    <h3 className="font-semibold text-white mb-2">{exercise.name}</h3>
+                    <div className="flex items-center gap-2 mb-3">
+                      <label className="text-gray-300">Minutes:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={exercise.quantity}
+                        onChange={(e) => handleQuantityChange(exercise.exercise_id, Number(e.target.value))}
+                        className="w-20 p-2 bg-zinc-600 text-white border border-zinc-500 rounded-md focus:outline-none focus:border-gray-300"
+                      />
+                    </div>
+                    <div className="text-gray-300 space-y-1">
+                      <p>Muscle Group: {exercise.muscle_group}</p>
+                      <p>Total Calories: {exercise.calories}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-zinc-700 p-4 rounded-lg border border-zinc-600">
+                  <h3 className="text-xl font-semibold mb-4">Workout Summary</h3>
+                  <div className="space-y-2">
+                    <p className="text-gray-300">
+                      Total Exercises: {loggedExercises.length}
+                    </p>
+                    <p className="text-gray-300">
+                      Total Minutes: {loggedExercises.reduce((sum, ex) => sum + ex.quantity, 0)}
+                    </p>
+                    <p className="text-gray-300">
+                      Total Calories Burned: {loggedExercises.reduce((sum, ex) => sum + ex.calories, 0)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-zinc-700 p-4 rounded-lg border border-zinc-600">
+                  <h3 className="text-xl font-semibold mb-4">Calories by Muscle Group</h3>
+                  {Object.keys(caloriesByGroup).length > 0 ? (
+                    <div className="w-full h-64">
+                      <Pie data={pieData} options={chartOptions} />
+                    </div>
+                  ) : (
+                    <p className="text-gray-400">No workout data to display</p>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
