@@ -686,13 +686,26 @@ export default function AdminDashboard() {
       // Calculate earnings and bookings for each trainer
       const trainersWithStats = await Promise.all(
         data.map(async (trainer) => {
+          // Get earnings from bookings
           const { data: bookings } = await supabase
             .from("bookings")
             .select("amount")
             .eq("trainer_id", trainer.trainer_id);
 
-          const totalEarnings = bookings?.reduce((sum, booking) => sum + booking.amount, 0) || 0;
+          const bookingsEarnings = bookings?.reduce((sum, booking) => sum + booking.amount, 0) || 0;
           const totalBookings = bookings?.length || 0;
+
+          // Get earnings from premium payments
+          const { data: premiumPayments } = await supabase
+            .from("payment")
+            .select("amount")
+            .eq("trainer_id", trainer.trainer_id)
+            .eq("status", "Completed");
+
+          const premiumEarnings = premiumPayments?.reduce((sum, payment) => sum + payment.amount, 0) || 0;
+
+          // Calculate total earnings from both sources
+          const totalEarnings = bookingsEarnings + premiumEarnings;
 
           return {
             ...trainer,
