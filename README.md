@@ -1,3 +1,49 @@
+# 🧘‍♂️ SwasthAf – Health and Fitness Management Web App
+
+SwasthAf is a full-stack health and fitness tracking application built using **Next.js**, **Supabase**, and **MySQL**. It supports user and trainer accounts, allowing personalized workouts, meal plans, progress logs, and mental wellness tracking — all on a simple and pretty interface.
+
+---
+
+## 🚀 Features
+
+### 👤 For Users
+- **Dashboard** with access to:
+  - 🥗 **Food Window**: Log daily meals from a curated food database and track calories/macros.
+  - 🏋️ **Workout Window**: Log daily exercises, calculate calories burned, and visualize muscle-group usage.
+  - 📈 **Logs Window**: Track calorie balance and mental health over time.
+
+- **Trainer Assignments**: Users can be assigned multiple trainers with individualized plans.
+
+---
+
+### 🧑‍🏫 For Trainers
+- Assign **Workout** and **Meal Plans** to users
+- View associated users and plans via the **Trainer Modal**
+
+---
+
+### 🔑 Authentication
+- Login & Signup using Supabase Auth
+- Role-based routing: Admin / Trainer / User dashboards
+
+---
+
+### 🧠 Admin Dashboard
+- Monitor all users and trainers
+- View recent mental health logs, payments, and activity status
+- Sortable, interactive data tables
+- Auto-calculations for average calories burned, payment tiers, etc.
+
+---
+
+## 🛠 Tech Stack
+
+| Frontend     | Backend         | Database     | Auth     |
+|--------------|------------------|--------------|----------|
+| Next.js 14   | Supabase RPC & JS | Supabase (PostgreSQL) & MySQL | Supabase Auth |
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
