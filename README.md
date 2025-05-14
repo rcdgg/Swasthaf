@@ -6,32 +6,33 @@ SwasthAf is a full-stack health and fitness tracking application built using **N
 
 ## 🚀 Features
 
-### 👤 For Users
+### 👤 User Functionalities
 - **Dashboard** with access to:
-  - 🥗 **Food Window**: Log daily meals from a curated food database and track calories/macros.
-  - 🏋️ **Workout Window**: Log daily exercises, calculate calories burned, and visualize muscle-group usage.
-  - 📈 **Logs Window**: Track calorie balance and mental health over time.
+  - 🥗 **Food Window**: Logs daily meals from the food database and tracks calories/macros.
+  - 🏋️ **Workout Window**: Logs daily exercises, calculates calories burned, and visualizes muscle-group usage.
+  - 📈 **Logs Window**: Tracks calorie balance and mental health over time.
 
-- **Trainer Assignments**: Users can be assigned multiple trainers with individualized plans.
+- **Trainer Assignments**: Users can avail multiple trainers, and have individualized routines.
 
 ---
 
-### 🧑‍🏫 For Trainers
-- Assign **Workout** and **Meal Plans** to users
-- View associated users and plans via the **Trainer Modal**
+### 🧑‍🏫 Trainer Functionalities
+- Assign **Workout** and **Meal Plans** to users.
+- View associated users and plans.
+- Revenue model: Trainers get money from users' subscriptions.
 
 ---
 
 ### 🔑 Authentication
-- Login & Signup using Supabase Auth
-- Role-based routing: Admin / Trainer / User dashboards
+- Login & Signup using Supabase Auth.
+- Role-based routing: Admin / Trainer / User dashboards.
 
 ---
 
 ### 🧠 Admin Dashboard
-- Monitor all users and trainers
-- View recent mental health logs, payments, and activity status
-- Sortable, interactive data tables
+- Monitor all users and trainers.
+- View recent mental health logs, payments, and activity status.
+- Sortable, interactive data tables.
 - Auto-calculations for average calories burned, payment tiers, etc.
 
 ---
